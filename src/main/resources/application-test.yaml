@@ -1,0 +1,175 @@
+spring:
+  threads:
+    virtual:
+      enabled: true
+  application:
+    name: learningLadder
+
+  datasource:
+    url: jdbc:postgresql://${PG_DATABASE_HOST}:${PG_DATABASE_PORT}/${PG_DATABASE_NAME}
+    username: ${PG_DATABASE_USERNAME}
+    password: ${PG_DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 3
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+
+server:
+  port: ${PORT}
+  forward-headers-strategy: framework
+
+app:
+  api:
+    version: ${API_VERSION}
+
+  security:
+    jwt:
+      access-token: ${JWT_ACCESS_TOKEN}
+      refresh-token: ${JWT_REFRESH_TOKEN}
+      access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS}
+      refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS}
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allowed-methods: ${ALLOWED_METHODS}
+
+  integrations:
+    stripe:
+      api-key: ${STRIPE_API_KEY}
+
+    groq:
+      api-key: ${GROQ_API_KEY}
+
+    resend:
+      api-key: ${RESEND_API_KEY}
+      sender-email: ${RESEND_SENDER_EMAIL}
+      sender-name: ${RESEND_SENDER_NAME}
+
+    minio:
+      endpoint: ${MINIO_ENDPOINT}
+      port: ${MINIO_PORT}
+      use-ssl: ${MINIO_USE_SSL}
+      region: ${MINIO_REGION}
+      username: ${MINIO_USERNAME}
+      password: ${MINIO_PASSWORD}
+      bucket-name: ${MINIO_BUCKET_NAME}
+      console-port: ${MINIO_CONSOLE_PORT}
+      auto-create-bucket: ${MINIO_AUTO_CREATE_BUCKET}
+
+  bootstrap:
+    users:
+      super-admin:
+        email: ${SUPER_ADMIN_EMAIL_ADDRESS}
+        password: ${SUPER_ADMIN_PASSWORD}
+      admin:
+        email: ${ADMIN_EMAIL_ADDRESS}
+        password: ${ADMIN_PASSWORD}
+      it-admin:
+        email: ${IT_ADMIN_EMAIL_ADDRESS}
+        password: ${IT_ADMIN_PASSWORD}
+
+      vice-chancellor:
+        email: ${VICE_CHANCELLOR_EMAIL_ADDRESS}
+        password: ${VICE_CHANCELLOR_PASSWORD}
+      deputy-vice-chancellor:
+        email: ${DEPUTY_VICE_CHANCELLOR_EMAIL_ADDRESS}
+        password: ${DEPUTY_VICE_CHANCELLOR_PASSWORD}
+      registrar:
+        email: ${REGISTRAR_EMAIL_ADDRESS}
+        password: ${REGISTRAR_PASSWORD}
+      deputy-registrar:
+        email: ${DEPUTY_REGISTRAR_EMAIL_ADDRESS}
+        password: ${DEPUTY_REGISTRAR_PASSWORD}
+      academic-director:
+        email: ${ACADEMIC_DIRECTOR_EMAIL_ADDRESS}
+        password: ${ACADEMIC_DIRECTOR_PASSWORD}
+
+      dean:
+        email: ${DEAN_EMAIL_ADDRESS}
+        password: ${DEAN_PASSWORD}
+      deputy-dean:
+        email: ${DEPUTY_DEAN_EMAIL_ADDRESS}
+        password: ${DEPUTY_DEAN_PASSWORD}
+      head-of-department:
+        email: ${HEAD_OF_DEPARTMENT_EMAIL_ADDRESS}
+        password: ${HEAD_OF_DEPARTMENT_PASSWORD}
+      deputy-head-of-department:
+        email: ${DEPUTY_HEAD_OF_DEPARTMENT_EMAIL_ADDRESS}
+        password: ${DEPUTY_HEAD_OF_DEPARTMENT_PASSWORD}
+      lecturer:
+        email: ${LECTURER_EMAIL_ADDRESS}
+        password: ${LECTURER_PASSWORD}
+      professor:
+        email: ${PROFESSOR_EMAIL_ADDRESS}
+        password: ${PROFESSOR_PASSWORD}
+      assistant-lecturer:
+        email: ${ASSISTANT_LECTURER_EMAIL_ADDRESS}
+        password: ${ASSISTANT_LECTURER_PASSWORD}
+
+      admissions-officer:
+        email: ${ADMISSIONS_OFFICER_EMAIL_ADDRESS}
+        password: ${ADMISSIONS_OFFICER_PASSWORD}
+      admission-committee:
+        email: ${ADMISSION_COMMITTEE_EMAIL_ADDRESS}
+        password: ${ADMISSION_COMMITTEE_PASSWORD}
+      student-registrar:
+        email: ${STUDENT_REGISTRAR_EMAIL_ADDRESS}
+        password: ${STUDENT_REGISTRAR_PASSWORD}
+
+      bursar:
+        email: ${BURSAR_EMAIL_ADDRESS}
+        password: ${BURSAR_PASSWORD}
+      accountant:
+        email: ${ACCOUNTANT_EMAIL_ADDRESS}
+        password: ${ACCOUNTANT_PASSWORD}
+      finance-officer:
+        email: ${FINANCE_OFFICER_EMAIL_ADDRESS}
+        password: ${FINANCE_OFFICER_PASSWORD}
+
+      hr-manager:
+        email: ${HR_MANAGER_EMAIL_ADDRESS}
+        password: ${HR_MANAGER_PASSWORD}
+      hr-officer:
+        email: ${HR_OFFICER_EMAIL_ADDRESS}
+        password: ${HR_OFFICER_PASSWORD}
+
+      examination-officer:
+        email: ${EXAMINATION_OFFICER_EMAIL_ADDRESS}
+        password: ${EXAMINATION_OFFICER_PASSWORD}
+      results-officer:
+        email: ${RESULTS_OFFICER_EMAIL_ADDRESS}
+        password: ${RESULTS_OFFICER_PASSWORD}
+
+      librarian:
+        email: ${LIBRARIAN_EMAIL_ADDRESS}
+        password: ${LIBRARIAN_PASSWORD}
+
+      student-affairs-officer:
+        email: ${STUDENT_AFFAIRS_OFFICER_EMAIL_ADDRESS}
+        password: ${STUDENT_AFFAIRS_OFFICER_PASSWORD}
+      counselor:
+        email: ${COUNSELOR_EMAIL_ADDRESS}
+        password: ${COUNSELOR_PASSWORD}
+
+      parent:
+        email: ${PARENT_EMAIL_ADDRESS}
+        password: ${PARENT_PASSWORD}
