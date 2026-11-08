@@ -12,5 +12,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmailIgnoreCase(String email);
 
+    Optional<User> findByForgotPassword(String forgotPassword);
+
+    Optional<User> findByMagicLinkToken(String magicLinkToken);
+
     Optional<User> findByFirebaseUid(String firebaseUid);
 }

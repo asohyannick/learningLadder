@@ -331,7 +331,7 @@ Every response also carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-
 **1️⃣ Clone the repository**
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/asohyannick/learningLadder.git
 cd learningLadder
 ```
 
@@ -561,6 +561,6 @@ Commit style: `feat: add tutor booking endpoint`, `fix: correct OTP expiry check
 
 ### 🪜 Learning Ladder: climbing together, one step at a time
 
-**Maintainer:** BackendCSKY &nbsp;|&nbsp; 📄 **License:** to be defined by the project owner
+**Maintainer:** Asoh Yannick &nbsp;|&nbsp; 📄 **License:** to be defined by the project owner
 
 </div>

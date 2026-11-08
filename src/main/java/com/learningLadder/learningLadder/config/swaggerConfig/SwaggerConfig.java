@@ -30,8 +30,8 @@ public class SwaggerConfig {
                                 REST API for the School Management System.
                                 
                                 **Authentication:** Protected endpoints require a JWT sent in the
-                                `Authorization` header as a Bearer token:
-                                `Authorization: Bearer <your_token>`
+                                Authorization header as a Bearer token:
+                                `uthorization: Bearer <your_token>
                                 
                                 Click the **Authorize** button, paste your token (without the
                                 'Bearer ' prefix) and all requests will include it automatically.

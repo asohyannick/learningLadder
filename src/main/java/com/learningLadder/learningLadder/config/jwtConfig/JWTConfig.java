@@ -114,9 +114,6 @@ public class JWTConfig {
         return resolver.apply(parseAccessToken(token));
     }
 
-    public long getAccessTokenExpirationMs() { return accessTokenExpirationMs; }
-    public long getRefreshTokenExpirationMs() { return refreshTokenExpirationMs; }
-
     // ---------- Internals ----------
 
     private Claims parse(String token, SecretKey key) {

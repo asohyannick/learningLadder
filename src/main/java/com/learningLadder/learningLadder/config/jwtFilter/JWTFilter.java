@@ -1,6 +1,5 @@
 package com.learningLadder.learningLadder.config.jwtFilter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.config.jwtConfig.JWTConfig;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -22,6 +21,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.util.List;
@@ -71,7 +71,10 @@ public class JWTFilter extends OncePerRequestFilter {
                 String username = jwtConfig.extractUsernameFromAccessToken(token);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                if (jwtConfig.isAccessTokenValid(token, userDetails)) {
+                if (jwtConfig.isAccessTokenValid(token, userDetails)
+                        && userDetails.isEnabled()
+                        && userDetails.isAccountNonLocked()
+                ) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails, null, userDetails.getAuthorities());

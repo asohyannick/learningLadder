@@ -1,6 +1,5 @@
 package com.learningLadder.learningLadder.config.secuirtyConfig;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.config.jwtFilter.JWTFilter;
 import com.learningLadder.learningLadder.config.ratingLimiting.RateLimitingFilter;
@@ -32,6 +31,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.CorsFilter;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
@@ -49,8 +49,26 @@ public class SecurityConfig {
             "/webjars/**"
     };
 
-    private static final String[] AUTH_WHITELIST = {
-            "/api/*/auth/**"
+    private static final String AUTH_BASE = "/api/*/auth";
+
+    private static final String[] PUBLIC_POST_ROUTES = {
+            AUTH_BASE + "/register",
+            AUTH_BASE + "/verify-otp",
+            AUTH_BASE + "/login",
+            AUTH_BASE + "/refresh-token",
+            AUTH_BASE + "/resend-otp",
+            AUTH_BASE + "/logout",
+            AUTH_BASE + "/forgot-password",
+            AUTH_BASE + "/reset-password",
+            AUTH_BASE + "/magic-link/send",
+            AUTH_BASE + "/magic-link/resend",
+            AUTH_BASE + "/magic-link/verify",
+            AUTH_BASE + "/google"
+    };
+
+    private static final String[] ADMIN_READ_ROUTES = {
+            AUTH_BASE + "/users",
+            AUTH_BASE + "/users/*"
     };
 
     private final JWTFilter jwtFilter;
@@ -102,7 +120,10 @@ public class SecurityConfig {
 
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
 
-                        .requestMatchers(AUTH_WHITELIST).permitAll()
+                        .requestMatchers(HttpMethod.GET, ADMIN_READ_ROUTES)
+                        .hasAnyRole("SUPER_ADMIN", "ADMIN", "IT_ADMIN")
+
+                        .requestMatchers(HttpMethod.POST, PUBLIC_POST_ROUTES).permitAll()
 
                         .anyRequest().authenticated())
 

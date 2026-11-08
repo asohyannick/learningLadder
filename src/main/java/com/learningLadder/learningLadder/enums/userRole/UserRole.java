@@ -1,4 +1,3 @@
-
 package com.learningLadder.learningLadder.enums.userRole;
 
 public enum UserRole {

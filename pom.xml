@@ -33,8 +33,6 @@
 		<stripe.version>34.1.0</stripe.version>
 		<firebase.admin.version>9.11.0</firebase.admin.version>
 		<apache.pdfbox.version>3.0.8</apache.pdfbox.version>
-		<flyway.core.version>13.12.1</flyway.core.version>
-		<flyway.pg.database.version>13.12.1</flyway.pg.database.version>
 		<mapstruct.version>1.6.3</mapstruct.version>
 		<springdoc.openai.swagger.version>3.2.0</springdoc.openai.swagger.version>
 		<jjwt.api.version>0.13.0</jjwt.api.version>
@@ -58,6 +56,10 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -117,12 +119,10 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>
-			<version>${flyway.core.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
-			<version>${flyway.pg.database.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.mapstruct</groupId>
@@ -214,21 +214,6 @@
 						<phase>compile</phase>
 						<goals>
 							<goal>compile</goal>
-						</goals>
-						<configuration>
-							<annotationProcessorPaths>
-								<path>
-									<groupId>org.projectlombok</groupId>
-									<artifactId>lombok</artifactId>
-								</path>
-							</annotationProcessorPaths>
-						</configuration>
-					</execution>
-					<execution>
-						<id>default-testCompile</id>
-						<phase>test-compile</phase>
-						<goals>
-							<goal>testCompile</goal>
 						</goals>
 						<configuration>
 							<annotationProcessorPaths>
