@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "stored_file")
+@Table(name = "stored_files")
 @Getter
 @Setter
 @NoArgsConstructor

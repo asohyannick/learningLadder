@@ -1,8 +1,8 @@
 package com.learningLadder.learningLadder.config.secuirtyConfig;
-
 import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.config.jwtFilter.JWTFilter;
 import com.learningLadder.learningLadder.config.ratingLimiting.RateLimitingFilter;
+import com.learningLadder.learningLadder.enums.userRole.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +34,9 @@ import org.springframework.web.filter.CorsFilter;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.util.Arrays;
+
+import static com.learningLadder.learningLadder.enums.userRole.UserRole.*;
 
 @Configuration
 @EnableWebSecurity
@@ -71,10 +74,38 @@ public class SecurityConfig {
             AUTH_BASE + "/users/*"
     };
 
+    private static final String COURSE_BASE = "/api/*/course";
+
+    private static final String[] COURSE_READ_ROUTES = {
+            COURSE_BASE,
+            COURSE_BASE + "/search",
+            COURSE_BASE + "/count",
+            COURSE_BASE + "/*",
+            COURSE_BASE + "/*/pdf"
+    };
+
+    private static final String[] COURSE_CREATE_ROUTES = { COURSE_BASE };
+    private static final String[] COURSE_UPDATE_ROUTES = { COURSE_BASE + "/*" };
+    private static final String[] COURSE_DELETE_ROUTES = { COURSE_BASE + "/*" };
+
+    private static final String[] PLATFORM_ADMIN_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+
+    private static final String[] COURSE_WRITE_ROLES = roles(
+            SUPER_ADMIN, ADMIN,
+            ACADEMIC_DIRECTOR,
+            DEAN, DEPUTY_DEAN,
+            HEAD_OF_DEPARTMENT, DEPUTY_HEAD_OF_DEPARTMENT,
+            PROFESSOR, LECTURER);
+
+    private static final String[] COURSE_DELETE_ROLES = roles(SUPER_ADMIN, ADMIN, ACADEMIC_DIRECTOR);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
 
+    private static String[] roles(UserRole... roles) {
+        return Arrays.stream(roles).map(Enum::name).toArray(String[]::new);
+    }
 
     @Bean
     public static PasswordEncoder passwordEncoder() {
@@ -116,14 +147,19 @@ public class SecurityConfig {
 
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class, InfoEndpoint.class)).permitAll()
                         .requestMatchers(EndpointRequest.toAnyEndpoint())
-                        .hasAnyRole("SUPER_ADMIN", "ADMIN", "IT_ADMIN")
+                        .hasAnyRole(PLATFORM_ADMIN_ROLES)
 
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
 
                         .requestMatchers(HttpMethod.GET, ADMIN_READ_ROUTES)
-                        .hasAnyRole("SUPER_ADMIN", "ADMIN", "IT_ADMIN")
+                        .hasAnyRole(PLATFORM_ADMIN_ROLES)
 
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ROUTES).permitAll()
+
+                        .requestMatchers(HttpMethod.GET, COURSE_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, COURSE_CREATE_ROUTES).hasAnyRole(COURSE_WRITE_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, COURSE_UPDATE_ROUTES).hasAnyRole(COURSE_WRITE_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, COURSE_DELETE_ROUTES).hasAnyRole(COURSE_DELETE_ROLES)
 
                         .anyRequest().authenticated())
 

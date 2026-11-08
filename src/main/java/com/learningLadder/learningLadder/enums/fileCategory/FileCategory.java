@@ -32,4 +32,13 @@ public enum FileCategory {
     public boolean allows(String contentType) {
         return contentType != null && allowedContentTypes.contains(contentType.toLowerCase());
     }
+
+    public static FileCategory fromContentType(String contentType) {
+        if (contentType != null) {
+            String type = contentType.toLowerCase();
+            if (type.startsWith("image/")) return IMAGE;
+            if (type.startsWith("video/")) return VIDEO;
+        }
+        return DOCUMENT;
+    }
 }
