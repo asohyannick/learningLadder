@@ -1,5 +1,6 @@
 package com.learningLadder.learningLadder.config.resendConfig.resendEmailTemplateAsync;
 import com.learningLadder.learningLadder.config.resendConfig.emailService.EmailService;
+import com.learningLadder.learningLadder.dto.timeTableDto.TimeTableResponseDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -10,6 +11,7 @@ import java.time.Instant;
 import java.time.Year;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
 
@@ -34,6 +36,18 @@ public class ResendEmailTemplateAsync {
     private static final Theme UNBLOCKED    = new Theme("#65A30D", "#F7FEE7", "&#128275;");  // lime
     private static final Theme MAGIC_LINK   = new Theme("#C026D3", "#FDF4FF", "&#10024;");   // fuchsia
     private static final Theme VERIFIED     = new Theme("#0891B2", "#ECFEFF", "&#128737;");  // cyan
+
+    private static final Theme TIMETABLE_CREATED = new Theme("#0D9488", "#F0FDFA", "&#128197;");  // teal, calendar
+    private static final Theme TIMETABLE_UPDATED = new Theme("#0284C7", "#F0F9FF", "&#9998;");    // sky, pencil
+    private static final Theme TIMETABLE_DELETED = new Theme("#E11D48", "#FFF1F2", "&#128465;");  // rose, wastebasket
+
+    private static final DateTimeFormatter DAY = DateTimeFormatter
+            .ofPattern("EEE, dd MMM yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter CLOCK = DateTimeFormatter
+            .ofPattern("HH:mm", Locale.ENGLISH);
+
+    /** The subject, HTML and plain-text bodies of one email, ready to hand to EmailService. */
+    public record EmailMessage(String subject, String html, String text) { }
 
     private static final String WARN_ACCENT = "#F59E0B";
     private static final String WARN_BG = "#FFFBEB";
@@ -312,17 +326,137 @@ public class ResendEmailTemplateAsync {
         return m == 1 ? "1 minute" : m + " minutes";
     }
 
-    /** Escapes anything user-controlled before it goes into HTML. */
     private String esc(String value) {
         return HtmlUtils.htmlEscape(value == null ? "" : value);
     }
 
-    /** Emails run in the background, so failures are logged here instead of bubbling to the caller. */
     private void dispatch(String to, String subject, String html, String text) {
         try {
             emailService.send(List.of(to), subject, html, text);
         } catch (Exception ex) {
             log.error("Failed to send email [subject={}]: {}", subject, ex.getMessage());
         }
+    }
+
+    public EmailMessage timeTableCreatedEmail(String firstName, TimeTableResponseDto t) {
+        String content = greeting(firstName)
+                + p("A new timetable entry has been added for <strong>" + esc(t.courseName())
+                + "</strong>. Here are the details:")
+                + timeTableDetails(TIMETABLE_CREATED, t)
+                + joinButton(TIMETABLE_CREATED, t)
+                + p("We'll email you again if this entry is changed or removed.");
+
+        return new EmailMessage(
+                "Timetable created: " + t.title(),
+                layout(TIMETABLE_CREATED, "A timetable entry was added for " + t.courseName(),
+                        "Timetable created", content),
+                "A timetable entry was added for " + t.courseName() + ": " + t.title()
+                        + " - " + whenText(t) + ".");
+    }
+
+    public EmailMessage timeTableUpdatedEmail(String firstName, TimeTableResponseDto t) {
+        String content = greeting(firstName)
+                + p("A timetable entry for <strong>" + esc(t.courseName())
+                + "</strong> has been updated. This is how it looks now:")
+                + timeTableDetails(TIMETABLE_UPDATED, t)
+                + joinButton(TIMETABLE_UPDATED, t)
+                + callout(TIMETABLE_UPDATED.color(), TIMETABLE_UPDATED.tint(),
+                "<strong>Didn't expect this change?</strong> Contact us at "
+                        + supportLink(TIMETABLE_UPDATED) + ".");
+
+        return new EmailMessage(
+                "Timetable updated: " + t.title(),
+                layout(TIMETABLE_UPDATED, "A timetable entry for " + t.courseName() + " was updated",
+                        "Timetable updated", content),
+                "A timetable entry for " + t.courseName() + " was updated: " + t.title()
+                        + " - " + whenText(t) + ".");
+    }
+
+    public EmailMessage timeTableDeletedEmail(String firstName, TimeTableResponseDto t) {
+        String content = greeting(firstName)
+                + p("The following timetable entry for <strong>" + esc(t.courseName())
+                + "</strong> has been removed:")
+                + timeTableDetails(TIMETABLE_DELETED, t)
+                + callout(TIMETABLE_DELETED.color(), TIMETABLE_DELETED.tint(),
+                "<strong>Removed by mistake?</strong> Contact us at "
+                        + supportLink(TIMETABLE_DELETED) + " and we'll help you sort it out.");
+
+        return new EmailMessage(
+                "Timetable removed: " + t.title(),
+                layout(TIMETABLE_DELETED, "A timetable entry for " + t.courseName() + " was removed",
+                        "Timetable removed", content),
+                "A timetable entry for " + t.courseName() + " was removed: " + t.title()
+                        + " - " + whenText(t) + ".");
+    }
+
+
+    private String timeTableDetails(Theme theme, TimeTableResponseDto d) {
+        String rows = detailRow("Course", esc(d.courseName()))
+                + detailRow("Title", esc(d.title()))
+                + detailRow("When", esc(whenText(d)))
+                + detailRow("Duration", minutes((int) d.durationMinutes()))
+                + detailRow("Format", esc(enumLabel(d.sessionMode())))
+                + detailRow("Location", esc(d.location()))
+                + detailRow("Meeting link", linkHtml(d.meetingUrl()))
+                + detailRow("Capacity", d.capacity() == null ? "" : String.valueOf(d.capacity()))
+                + detailRow("Status", esc(enumLabel(d.status())))
+                + detailRow("Notes", esc(d.notes()));
+
+        return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:20px 0;\"><tr>"
+                + "<td style=\"background-color:" + theme.tint() + ";border-left:4px solid " + theme.color()
+                + ";border-radius:6px;padding:12px 16px;\">"
+                + "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">" + rows + "</table>"
+                + "</td></tr></table>";
+    }
+
+    private String detailRow(String label, String valueHtml) {
+        if (valueHtml == null || valueHtml.isBlank()) {
+            return "";
+        }
+        return "<tr><td style=\"padding:6px 14px 6px 0;font-size:13px;color:#6B7280;vertical-align:top;white-space:nowrap;\">"
+                + label + "</td>"
+                + "<td style=\"padding:6px 0;font-size:14px;color:#111827;font-weight:600;\">" + valueHtml + "</td></tr>";
+    }
+
+    private String joinButton(Theme theme, TimeTableResponseDto d) {
+        boolean online = d.sessionMode() != null && !"IN_PERSON".equals(d.sessionMode().name());
+        return online && isHttpUrl(d.meetingUrl()) ? button(theme, "Join online", d.meetingUrl()) : "";
+    }
+
+    private String whenText(TimeTableResponseDto d) {
+        String time = CLOCK.format(d.startTime()) + " - " + CLOCK.format(d.endTime()) + " (" + d.timezone() + ")";
+        if (d.recurring() && d.dayOfWeek() != null) {
+            String range = d.endDate() == null
+                    ? "from " + DAY.format(d.startDate())
+                    : "from " + DAY.format(d.startDate()) + " to " + DAY.format(d.endDate());
+            return "Every " + d.dayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+                    + ", " + time + ", " + range;
+        }
+        return DAY.format(d.startDate()) + ", " + time;
+    }
+
+    private String enumLabel(Enum<?> value) {
+        if (value == null) {
+            return "";
+        }
+        String text = value.name().toLowerCase(Locale.ROOT).replace('_', ' ');
+        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
+    }
+
+    private boolean isHttpUrl(String url) {
+        if (url == null) {
+            return false;
+        }
+        String lower = url.toLowerCase(Locale.ROOT);
+        return lower.startsWith("https://") || lower.startsWith("http://");
+    }
+
+    private String linkHtml(String url) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+        return isHttpUrl(url)
+                ? "<a href=\"" + esc(url) + "\" style=\"color:#0284C7;word-break:break-all;\">" + esc(url) + "</a>"
+                : esc(url);
     }
 }

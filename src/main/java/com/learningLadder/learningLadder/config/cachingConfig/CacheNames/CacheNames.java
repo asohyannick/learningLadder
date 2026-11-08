@@ -8,6 +8,5 @@ public final class CacheNames {
     public static final String STUDENTS = "students";
     public static final String COURSES = "courses";
     public static final String TUTORS = "tutors";
-    public static final String DEPARTMENTS = "departments";
-    public static final String FACULTIES = "faculties";
+    public static final String TIMETABLE = "timetable";
 }

@@ -25,15 +25,7 @@ public class EmailService {
         this.from = senderName + " <" + senderEmail + ">";
     }
 
-    public String sendHtml(String to, String subject, String html) {
-        return send(List.of(to), subject, html, null);
-    }
-
-    public String sendText(String to, String subject, String text) {
-        return send(List.of(to), subject, null, text);
-    }
-
-    public String send(List<String> recipients, String subject, String html, String text) {
+    public void send(List<String> recipients, String subject, String html, String text) {
         CreateEmailOptions.Builder builder = CreateEmailOptions.builder()
                 .from(from)
                 .to(recipients)
@@ -45,7 +37,6 @@ public class EmailService {
         try {
             CreateEmailResponse response = resend.emails().send(builder.build());
             log.info("Email sent [id={}, recipients={}]", response.getId(), recipients.size());
-            return response.getId();
         } catch (ResendException ex) {
             log.error("Failed to send email [subject={}]: {}", subject, ex.getMessage());
             throw new EmailDeliveryException("Failed to send email", ex);

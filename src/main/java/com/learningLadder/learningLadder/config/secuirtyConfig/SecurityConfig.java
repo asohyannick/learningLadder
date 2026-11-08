@@ -147,6 +147,30 @@ public class SecurityConfig {
             LECTURER, PROFESSOR, ASSISTANT_LECTURER,
             SUPER_ADMIN, ADMIN, IT_ADMIN);
 
+    private static final String TIMETABLE_BASE = "/api/*/time-table";
+
+    private static final String[] TIMETABLE_READ_ROUTES = {
+            TIMETABLE_BASE,
+            TIMETABLE_BASE + "/search",
+            TIMETABLE_BASE + "/count",
+            TIMETABLE_BASE + "/download",
+            TIMETABLE_BASE + "/*"
+    };
+
+    private static final String[] TIMETABLE_CREATE_ROUTES = { TIMETABLE_BASE };
+    private static final String[] TIMETABLE_UPDATE_ROUTES = { TIMETABLE_BASE + "/*" };
+    private static final String[] TIMETABLE_DELETE_ROUTES = { TIMETABLE_BASE + "/*" };
+
+    private static final String[] TIMETABLE_WRITE_ROLES = roles(
+            SUPER_ADMIN, ADMIN, IT_ADMIN,
+            ACADEMIC_DIRECTOR,
+            DEAN, DEPUTY_DEAN,
+            HEAD_OF_DEPARTMENT, DEPUTY_HEAD_OF_DEPARTMENT,
+            PROFESSOR, LECTURER);
+
+    private static final String[] TIMETABLE_DELETE_ROLES = roles(
+            SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -218,6 +242,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, TUTOR_PROFILE_CREATE_ROUTES).hasAnyRole(TUTOR_ROLES)
                         .requestMatchers(HttpMethod.PATCH, TUTOR_PROFILE_UPDATE_ROUTES).hasAnyRole(TUTOR_PROFILE_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, TUTOR_PROFILE_DELETE_ROUTES).hasAnyRole(TUTOR_PROFILE_MANAGE_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, TIMETABLE_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, TIMETABLE_CREATE_ROUTES).hasAnyRole(TIMETABLE_WRITE_ROLES)
+                        .requestMatchers(HttpMethod.PUT, TIMETABLE_UPDATE_ROUTES).hasAnyRole(TIMETABLE_WRITE_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, TIMETABLE_DELETE_ROUTES).hasAnyRole(TIMETABLE_DELETE_ROLES)
 
                         .anyRequest().authenticated())
 
