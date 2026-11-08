@@ -99,6 +99,28 @@ public class SecurityConfig {
 
     private static final String[] COURSE_DELETE_ROLES = roles(SUPER_ADMIN, ADMIN, ACADEMIC_DIRECTOR);
 
+    private static final String STUDENT_PROFILE_BASE = "/api/*/student-profile";
+
+    private static final String[] STUDENT_PROFILE_READ_ROUTES = {
+            STUDENT_PROFILE_BASE,
+            STUDENT_PROFILE_BASE + "/search",
+            STUDENT_PROFILE_BASE + "/count",
+            STUDENT_PROFILE_BASE + "/download",
+            STUDENT_PROFILE_BASE + "/*"
+    };
+
+    private static final String[] STUDENT_PROFILE_CREATE_ROUTES = { STUDENT_PROFILE_BASE };
+    private static final String[] STUDENT_PROFILE_UPDATE_ROUTES = { STUDENT_PROFILE_BASE + "/*" };
+    private static final String[] STUDENT_PROFILE_DELETE_ROUTES = { STUDENT_PROFILE_BASE + "/*" };
+
+    private static final String[] STUDENT_PROFILE_STAFF_ROLES = roles(
+            SUPER_ADMIN, ADMIN, IT_ADMIN,
+            REGISTRAR, DEPUTY_REGISTRAR,
+            ADMISSIONS_OFFICER, STUDENT_REGISTRAR);
+
+    private static final String[] STUDENT_PROFILE_MANAGE_ROLES = roles(
+            STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -160,6 +182,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, COURSE_CREATE_ROUTES).hasAnyRole(COURSE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.PATCH, COURSE_UPDATE_ROUTES).hasAnyRole(COURSE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, COURSE_DELETE_ROUTES).hasAnyRole(COURSE_DELETE_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, STUDENT_PROFILE_READ_ROUTES).hasAnyRole(STUDENT_PROFILE_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.POST, STUDENT_PROFILE_CREATE_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.PATCH, STUDENT_PROFILE_UPDATE_ROUTES).hasAnyRole(STUDENT_PROFILE_MANAGE_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, STUDENT_PROFILE_DELETE_ROUTES).hasAnyRole(STUDENT_PROFILE_MANAGE_ROLES)
 
                         .anyRequest().authenticated())
 

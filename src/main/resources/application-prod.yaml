@@ -5,6 +5,11 @@ spring:
   application:
     name: learningLadder
 
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
   datasource:
     url: jdbc:postgresql://${PG_DATABASE_HOST}:${PG_DATABASE_PORT}/${PG_DATABASE_NAME}
     username: ${PG_DATABASE_USERNAME}

@@ -31,7 +31,7 @@ public class SwaggerConfig {
                                 
                                 **Authentication:** Protected endpoints require a JWT sent in the
                                 Authorization header as a Bearer token:
-                                `uthorization: Bearer <your_token>
+                                `authorization: Bearer <eypg....>
                                 
                                 Click the **Authorize** button, paste your token (without the
                                 'Bearer ' prefix) and all requests will include it automatically.
