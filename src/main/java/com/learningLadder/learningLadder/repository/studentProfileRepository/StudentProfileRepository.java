@@ -23,4 +23,7 @@ public interface StudentProfileRepository
     @EntityGraph(attributePaths = {"profilePicture"})
     @NonNull
     Page<StudentProfile> findAll(@NonNull Specification<StudentProfile> spec, @NonNull Pageable pageable);
+
+    Optional<StudentProfile> findByUserId(UUID userId);
+
 }

@@ -230,6 +230,22 @@ public class SecurityConfig {
 
     private static final String[] JOB_APPLICATION_MANAGE_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
 
+    private static final String BOOKING_BASE = "/api/*/booking";
+
+    private static final String[] BOOKING_STAFF_READ_ROUTES = {
+            BOOKING_BASE,
+            BOOKING_BASE + "/search",
+            BOOKING_BASE + "/count",
+            BOOKING_BASE + "/download"
+    };
+
+    private static final String[] BOOKING_SINGLE_READ_ROUTES = { BOOKING_BASE + "/*" };
+    private static final String[] BOOKING_CREATE_ROUTES = { BOOKING_BASE };
+    private static final String[] BOOKING_UPDATE_ROUTES = { BOOKING_BASE + "/*" };
+    private static final String[] BOOKING_DELETE_ROUTES = { BOOKING_BASE + "/*" };
+
+    private static final String[] BOOKING_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -324,6 +340,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, JOB_APPLICATION_CREATE_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.PATCH, JOB_APPLICATION_UPDATE_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.DELETE, JOB_APPLICATION_DELETE_ROUTES).hasAnyRole(JOB_APPLICATION_MANAGE_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, BOOKING_STAFF_READ_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.GET, BOOKING_SINGLE_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, BOOKING_CREATE_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.PATCH, BOOKING_UPDATE_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.DELETE, BOOKING_DELETE_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
 
                         .anyRequest().authenticated())
 

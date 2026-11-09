@@ -11,4 +11,9 @@ public final class CacheNames {
     public static final String TIMETABLE = "timetable";
     public static final String REVIEWS = "reviews";
     public static final String JOB_LISTINGS = "jobListings";
+    public static final String BOOKING = "booking";
+    public static final String BOOKINGS = "bookings";
+    public static final String BOOKING_SEARCH = "bookingSearch";
+    public static final String BOOKING_COUNT = "bookingCount";
+    public static final String BOOKING_PDF = "bookingPdf";
 }
