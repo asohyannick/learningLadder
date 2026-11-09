@@ -122,6 +122,49 @@ public class MinioFileStorageService {
         removeObjectQuietly(file.getObjectKey());
     }
 
+
+    /**
+     * Uploads raw bytes to MinIO under the given object key.
+     * Unlike upload(...), it does not create a StoredFile row, so the caller keeps the key itself.
+     * Safe to call from a background thread because it takes a stream, not a MultipartFile.
+     */
+    public void uploadFile(String objectKey, InputStream content, long size, String contentType) {
+        if (!StringUtils.hasText(objectKey)) {
+            throw new FileStorageException("Object key must not be empty");
+        }
+        try (InputStream in = content) {
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(config.getBucketName())
+                    .object(objectKey)
+                    .stream(in, size, -1L)
+                    .contentType(contentType)
+                    .build());
+            log.debug("Object uploaded to MinIO [{}] ({} bytes)", objectKey, size);
+        } catch (Exception ex) {
+            throw new FileStorageException("Failed to upload object " + objectKey, ex);
+        }
+    }
+
+    /**
+     * Deletes a raw object from MinIO by its key.
+     * Unlike removeObjectQuietly(...), it throws on failure so the background job can retry.
+     * Deleting a key that does not exist is not an error in MinIO.
+     */
+    public void deleteFile(String objectKey) {
+        if (!StringUtils.hasText(objectKey)) {
+            return;
+        }
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(config.getBucketName())
+                    .object(objectKey)
+                    .build());
+            log.debug("Object removed from MinIO [{}]", objectKey);
+        } catch (Exception ex) {
+            throw new FileStorageException("Failed to delete object " + objectKey, ex);
+        }
+    }
+
     // =====================================================================
     // Internals
     // =====================================================================

@@ -213,6 +213,23 @@ public class SecurityConfig {
 
     private static final String[] JOB_LISTING_MANAGE_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
 
+    private static final String JOB_APPLICATION_BASE = "/api/*/job-application";
+
+    private static final String[] JOB_APPLICATION_ADMIN_READ_ROUTES = {
+            JOB_APPLICATION_BASE,
+            JOB_APPLICATION_BASE + "/search",
+            JOB_APPLICATION_BASE + "/count",
+            JOB_APPLICATION_BASE + "/download"
+    };
+
+    private static final String[] JOB_APPLICATION_SINGLE_READ_ROUTES = { JOB_APPLICATION_BASE + "/*" };
+
+    private static final String[] JOB_APPLICATION_CREATE_ROUTES = { JOB_APPLICATION_BASE };
+    private static final String[] JOB_APPLICATION_UPDATE_ROUTES = { JOB_APPLICATION_BASE + "/*" };
+    private static final String[] JOB_APPLICATION_DELETE_ROUTES = { JOB_APPLICATION_BASE + "/*" };
+
+    private static final String[] JOB_APPLICATION_MANAGE_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -301,6 +318,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, JOB_LISTING_CREATE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.PATCH, JOB_LISTING_UPDATE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, JOB_LISTING_DELETE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, JOB_APPLICATION_ADMIN_READ_ROUTES).hasAnyRole(JOB_APPLICATION_MANAGE_ROLES)
+                        .requestMatchers(HttpMethod.GET, JOB_APPLICATION_SINGLE_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, JOB_APPLICATION_CREATE_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.PATCH, JOB_APPLICATION_UPDATE_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.DELETE, JOB_APPLICATION_DELETE_ROUTES).hasAnyRole(JOB_APPLICATION_MANAGE_ROLES)
 
                         .anyRequest().authenticated())
 
