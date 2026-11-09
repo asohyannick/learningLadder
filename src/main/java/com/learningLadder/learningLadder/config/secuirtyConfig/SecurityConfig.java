@@ -171,6 +171,32 @@ public class SecurityConfig {
     private static final String[] TIMETABLE_DELETE_ROLES = roles(
             SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
 
+
+    private static final String REVIEW_BASE = "/api/*/review";
+
+    private static final String[] REVIEW_READ_ROUTES = {
+            REVIEW_BASE,
+            REVIEW_BASE + "/search",
+            REVIEW_BASE + "/count",
+            REVIEW_BASE + "/*"
+    };
+
+    private static final String[] REVIEW_DOWNLOAD_ROUTES = { REVIEW_BASE + "/download" };
+    private static final String[] REVIEW_CREATE_ROUTES = { REVIEW_BASE };
+    private static final String[] REVIEW_UPDATE_ROUTES = { REVIEW_BASE + "/*" };
+    private static final String[] REVIEW_DELETE_ROUTES = { REVIEW_BASE + "/*" };
+
+    private static final String[] REVIEW_MODERATION_ROUTES = {
+            REVIEW_BASE + "/*/approve",
+            REVIEW_BASE + "/*/disapprove"
+    };
+
+    private static final String[] REVIEW_MODERATOR_ROLES = roles(
+            SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+
+    private static final String[] REVIEW_MANAGE_ROLES = roles(
+            STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -247,6 +273,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, TIMETABLE_CREATE_ROUTES).hasAnyRole(TIMETABLE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.PUT, TIMETABLE_UPDATE_ROUTES).hasAnyRole(TIMETABLE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, TIMETABLE_DELETE_ROUTES).hasAnyRole(TIMETABLE_DELETE_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, REVIEW_DOWNLOAD_ROUTES).hasAnyRole(REVIEW_MODERATOR_ROLES)
+                        .requestMatchers(HttpMethod.GET, REVIEW_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, REVIEW_CREATE_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.PATCH, REVIEW_MODERATION_ROUTES).hasAnyRole(REVIEW_MODERATOR_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, REVIEW_UPDATE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, REVIEW_DELETE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
 
                         .anyRequest().authenticated())
 
