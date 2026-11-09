@@ -197,6 +197,22 @@ public class SecurityConfig {
     private static final String[] REVIEW_MANAGE_ROLES = roles(
             STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
 
+    private static final String JOB_LISTING_BASE = "/api/*/job-listing";
+
+    private static final String[] JOB_LISTING_READ_ROUTES = {
+            JOB_LISTING_BASE,
+            JOB_LISTING_BASE + "/search",
+            JOB_LISTING_BASE + "/count",
+            JOB_LISTING_BASE + "/download",
+            JOB_LISTING_BASE + "/*"
+    };
+
+    private static final String[] JOB_LISTING_CREATE_ROUTES = { JOB_LISTING_BASE };
+    private static final String[] JOB_LISTING_UPDATE_ROUTES = { JOB_LISTING_BASE + "/*" };
+    private static final String[] JOB_LISTING_DELETE_ROUTES = { JOB_LISTING_BASE + "/*" };
+
+    private static final String[] JOB_LISTING_MANAGE_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -280,6 +296,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, REVIEW_MODERATION_ROUTES).hasAnyRole(REVIEW_MODERATOR_ROLES)
                         .requestMatchers(HttpMethod.PATCH, REVIEW_UPDATE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, REVIEW_DELETE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, JOB_LISTING_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, JOB_LISTING_CREATE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, JOB_LISTING_UPDATE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, JOB_LISTING_DELETE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
 
                         .anyRequest().authenticated())
 

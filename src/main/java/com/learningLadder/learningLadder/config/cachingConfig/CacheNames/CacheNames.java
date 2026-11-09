@@ -10,4 +10,5 @@ public final class CacheNames {
     public static final String TUTORS = "tutors";
     public static final String TIMETABLE = "timetable";
     public static final String REVIEWS = "reviews";
+    public static final String JOB_LISTINGS = "jobListings";
 }
