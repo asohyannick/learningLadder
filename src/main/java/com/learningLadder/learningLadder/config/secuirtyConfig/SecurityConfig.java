@@ -246,6 +246,45 @@ public class SecurityConfig {
 
     private static final String[] BOOKING_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
 
+    private static final String LIBRARY_BASE = "/api/*/library";
+
+    private static final String[] LIBRARY_BOOK_READ_ROUTES = {
+            LIBRARY_BASE + "/books",
+            LIBRARY_BASE + "/books/search",
+            LIBRARY_BASE + "/books/count",
+            LIBRARY_BASE + "/books/*"
+    };
+    private static final String[] LIBRARY_BOOK_CREATE_ROUTES = { LIBRARY_BASE + "/books" };
+    private static final String[] LIBRARY_BOOK_UPDATE_ROUTES = { LIBRARY_BASE + "/books/*" };
+    private static final String[] LIBRARY_BOOK_DELETE_ROUTES = { LIBRARY_BASE + "/books/*" };
+
+    // Must be matched BEFORE "/loans/*", which would otherwise also match /search, /count and /download
+    private static final String[] LIBRARY_LOAN_STAFF_READ_ROUTES = {
+            LIBRARY_BASE + "/loans",
+            LIBRARY_BASE + "/loans/search",
+            LIBRARY_BASE + "/loans/count",
+            LIBRARY_BASE + "/loans/download"
+    };
+    private static final String[] LIBRARY_LOAN_SINGLE_READ_ROUTES = { LIBRARY_BASE + "/loans/*" };
+    private static final String[] LIBRARY_LOAN_BORROW_ROUTES = { LIBRARY_BASE + "/loans" };
+    private static final String[] LIBRARY_LOAN_STAFF_ACTION_ROUTES = {
+            LIBRARY_BASE + "/loans/*",
+            LIBRARY_BASE + "/loans/*/issue",
+            LIBRARY_BASE + "/loans/*/confirm-return"
+    };
+    private static final String[] LIBRARY_LOAN_STUDENT_ACTION_ROUTES = {
+            LIBRARY_BASE + "/loans/*/renew",
+            LIBRARY_BASE + "/loans/*/return"
+    };
+    private static final String[] LIBRARY_LOAN_SHARED_ACTION_ROUTES = {
+            LIBRARY_BASE + "/loans/*/cancel",
+            LIBRARY_BASE + "/loans/*/report-lost"
+    };
+    private static final String[] LIBRARY_LOAN_DELETE_ROUTES = { LIBRARY_BASE + "/loans/*" };
+
+    private static final String[] LIBRARY_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+    private static final String[] LIBRARY_STUDENT_OR_STAFF_ROLES = roles(STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -346,6 +385,19 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, BOOKING_CREATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, BOOKING_UPDATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.DELETE, BOOKING_DELETE_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, LIBRARY_BOOK_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, LIBRARY_BOOK_CREATE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, LIBRARY_BOOK_UPDATE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, LIBRARY_BOOK_DELETE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, LIBRARY_LOAN_STAFF_READ_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.GET, LIBRARY_LOAN_SINGLE_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.POST, LIBRARY_LOAN_BORROW_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_STAFF_ACTION_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_STUDENT_ACTION_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_SHARED_ACTION_ROUTES).hasAnyRole(LIBRARY_STUDENT_OR_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, LIBRARY_LOAN_DELETE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
 
                         .anyRequest().authenticated())
 

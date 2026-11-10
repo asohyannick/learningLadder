@@ -11,9 +11,27 @@ public final class CacheNames {
     public static final String TIMETABLE = "timetable";
     public static final String REVIEWS = "reviews";
     public static final String JOB_LISTINGS = "jobListings";
+
+    public static final String JOB_APPLICATION = "jobApplication";
+    public static final String JOB_APPLICATIONS = "jobApplications";
+    public static final String JOB_APPLICATION_SEARCH = "jobApplicationSearch";
+    public static final String JOB_APPLICATION_COUNT = "jobApplicationCount";
+    public static final String JOB_APPLICATION_PDF = "jobApplicationPdf";
+
     public static final String BOOKING = "booking";
     public static final String BOOKINGS = "bookings";
     public static final String BOOKING_SEARCH = "bookingSearch";
     public static final String BOOKING_COUNT = "bookingCount";
     public static final String BOOKING_PDF = "bookingPdf";
+
+    public static final String LIBRARY_BOOK = "libraryBook";
+    public static final String LIBRARY_BOOKS = "libraryBooks";
+    public static final String LIBRARY_BOOK_SEARCH = "libraryBookSearch";
+    public static final String LIBRARY_BOOK_COUNT = "libraryBookCount";
+
+    public static final String LIBRARY_LOAN = "libraryLoan";
+    public static final String LIBRARY_LOANS = "libraryLoans";
+    public static final String LIBRARY_LOAN_SEARCH = "libraryLoanSearch";
+    public static final String LIBRARY_LOAN_COUNT = "libraryLoanCount";
+    public static final String LIBRARY_LOAN_PDF = "libraryLoanPdf";
 }
