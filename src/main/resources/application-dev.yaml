@@ -67,6 +67,13 @@ app:
   integrations:
     stripe:
       api-key: ${STRIPE_API_KEY}
+      publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      default-currency: ${STRIPE_DEFAULT_CURRENCY:usd}
+      cancel-url: ${STRIPE_CANCEL_URL:}
+      max-network-retries: 2
+      connect-timeout: 10s
+      read-timeout: 30s
 
     groq:
       api-key: ${GROQ_API_KEY}

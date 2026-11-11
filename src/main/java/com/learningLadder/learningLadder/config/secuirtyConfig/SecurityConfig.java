@@ -346,6 +346,21 @@ public class SecurityConfig {
             SUPER_ADMIN, ADMIN, IT_ADMIN,
             LECTURER, PROFESSOR, ASSISTANT_LECTURER);
 
+    private static final String PAYMENT_BASE = "/api/*/payment";
+
+    private static final String[] PAYMENT_WEBHOOK_ROUTES = { PAYMENT_BASE + "/webhook/stripe" };
+
+    private static final String[] PAYMENT_FINANCE_ROUTES = {
+            PAYMENT_BASE + "/school-fees/record",
+            PAYMENT_BASE + "/salaries",
+            PAYMENT_BASE + "/salaries/**",
+            PAYMENT_BASE + "/search",
+            PAYMENT_BASE + "/*/refund"
+    };
+    private static final String[] PAYMENT_USER_ROUTES = { PAYMENT_BASE, PAYMENT_BASE + "/**" };
+
+    private static final String[] PAYMENT_FINANCE_ROLES = roles(SUPER_ADMIN, ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -500,6 +515,10 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.GET, COUPON_STUDENT_ROUTES).authenticated()
                         .requestMatchers(COUPON_ISSUER_ROUTES).hasAnyRole(COUPON_ISSUER_ROLES)
+
+                        .requestMatchers(HttpMethod.POST, PAYMENT_WEBHOOK_ROUTES).permitAll()
+                        .requestMatchers(PAYMENT_FINANCE_ROUTES).hasAnyRole(PAYMENT_FINANCE_ROLES)
+                        .requestMatchers(PAYMENT_USER_ROUTES).authenticated()
 
                         .anyRequest().authenticated())
 
