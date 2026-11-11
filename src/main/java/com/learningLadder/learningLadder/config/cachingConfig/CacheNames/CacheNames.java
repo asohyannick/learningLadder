@@ -41,4 +41,10 @@ public final class CacheNames {
     public static final String PARTNER_COUNT = "partnerCount";
     public static final String PARTNER_PDF = "partnerPdf";
     public static final String PARTNER_PUBLIC = "partnerPublic";
+
+    public static final String SHOPPING_CART_ITEM = "shoppingCartItem";
+    public static final String SHOPPING_CART_COUNT = "shoppingCartCount";
+    public static final String SHOPPING_CART_HISTORY = "shoppingCartHistory";
+    public static final String SHOPPING_CART_SEARCH = "shoppingCartSearch";
+    public static final String SHOPPING_CART_BY_ID = "shoppingCartById";
 }

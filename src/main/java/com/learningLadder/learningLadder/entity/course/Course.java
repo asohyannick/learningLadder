@@ -64,8 +64,6 @@ public class Course {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
-    // ---------- Pricing ----------
-
     @Column(name = "price", precision = 12, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;
 
@@ -79,15 +77,11 @@ public class Course {
     @Column(name = "status")
     private CourseStatus status = CourseStatus.FREE;
 
-    // ---------- Publishing ----------
-
     @Column(name = "published", nullable = false)
     private boolean published = false;
 
     @Column(name = "published_at")
     private Instant publishedAt;
-
-    // ---------- Media (files live in MinIO, tracked through StoredFile) ----------
 
     /** Course cover image (an IMAGE). Replaces the old imageUrl string. */
     @ManyToOne(fetch = FetchType.LAZY)

@@ -330,6 +330,22 @@ public class SecurityConfig {
 
     private static final String[] PARTNER_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
 
+    private static final String CART_BASE = "/api/*/shopping-cart";
+
+    private static final String[] CART_STAFF_ROUTES = { CART_BASE + "/admin/**" };
+    private static final String[] CART_USER_ROUTES = { CART_BASE, CART_BASE + "/**" };
+
+    private static final String[] CART_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+
+    private static final String COUPON_BASE = "/api/*/coupons";
+
+    private static final String[] COUPON_STUDENT_ROUTES = { COUPON_BASE + "/mine" };
+    private static final String[] COUPON_ISSUER_ROUTES = { COUPON_BASE, COUPON_BASE + "/**" };
+
+    private static final String[] COUPON_ISSUER_ROLES = roles(
+            SUPER_ADMIN, ADMIN, IT_ADMIN,
+            LECTURER, PROFESSOR, ASSISTANT_LECTURER);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -466,6 +482,24 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, PARTNER_CREATE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
                         .requestMatchers(HttpMethod.PATCH, PARTNER_WRITE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
                         .requestMatchers(HttpMethod.DELETE, PARTNER_WRITE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+
+                        .requestMatchers(CART_STAFF_ROUTES).hasAnyRole(CART_STAFF_ROLES)
+                        .requestMatchers(CART_USER_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.GET, COUPON_STUDENT_ROUTES).authenticated()
+                        .requestMatchers(COUPON_ISSUER_ROUTES).hasAnyRole(COUPON_ISSUER_ROLES)
+
+                        .requestMatchers(HttpMethod.GET, PARTNER_PUBLIC_READ_ROUTES).permitAll()
+                        .requestMatchers(HttpMethod.GET, PARTNER_STAFF_READ_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.POST, PARTNER_CREATE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, PARTNER_WRITE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, PARTNER_WRITE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+
+
+                        .requestMatchers(CART_STAFF_ROUTES).hasAnyRole(CART_STAFF_ROLES)
+                        .requestMatchers(CART_USER_ROUTES).authenticated()
+
+                        .requestMatchers(HttpMethod.GET, COUPON_STUDENT_ROUTES).authenticated()
+                        .requestMatchers(COUPON_ISSUER_ROUTES).hasAnyRole(COUPON_ISSUER_ROLES)
 
                         .anyRequest().authenticated())
 
