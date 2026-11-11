@@ -34,4 +34,11 @@ public final class CacheNames {
     public static final String LIBRARY_LOAN_SEARCH = "libraryLoanSearch";
     public static final String LIBRARY_LOAN_COUNT = "libraryLoanCount";
     public static final String LIBRARY_LOAN_PDF = "libraryLoanPdf";
+
+    public static final String PARTNER = "partner";
+    public static final String PARTNERS = "partners";
+    public static final String PARTNER_SEARCH = "partnerSearch";
+    public static final String PARTNER_COUNT = "partnerCount";
+    public static final String PARTNER_PDF = "partnerPdf";
+    public static final String PARTNER_PUBLIC = "partnerPublic";
 }

@@ -95,10 +95,16 @@ public class SecurityConfig {
             SUPER_ADMIN, ADMIN,
             ACADEMIC_DIRECTOR,
             DEAN, DEPUTY_DEAN,
-            HEAD_OF_DEPARTMENT, DEPUTY_HEAD_OF_DEPARTMENT,
-            PROFESSOR, LECTURER);
+            HEAD_OF_DEPARTMENT,
+            DEPUTY_HEAD_OF_DEPARTMENT,
+            PROFESSOR, LECTURER
+    );
 
-    private static final String[] COURSE_DELETE_ROLES = roles(SUPER_ADMIN, ADMIN, ACADEMIC_DIRECTOR);
+    private static final String[] COURSE_DELETE_ROLES = roles(
+            SUPER_ADMIN,
+            ADMIN,
+            ACADEMIC_DIRECTOR
+    );
 
     private static final String STUDENT_PROFILE_BASE = "/api/*/student-profile";
 
@@ -305,6 +311,25 @@ public class SecurityConfig {
 
     private static final String[] AI_ASSIST_ADMIN_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
 
+    private static final String PARTNER_BASE = "/api/*/partners";
+
+    private static final String[] PARTNER_PUBLIC_READ_ROUTES = {
+            PARTNER_BASE + "/public",
+            PARTNER_BASE + "/public/search",
+            PARTNER_BASE + "/public/*"
+    };
+    private static final String[] PARTNER_STAFF_READ_ROUTES = {
+            PARTNER_BASE,
+            PARTNER_BASE + "/search",
+            PARTNER_BASE + "/count",
+            PARTNER_BASE + "/download",
+            PARTNER_BASE + "/*"
+    };
+    private static final String[] PARTNER_CREATE_ROUTES = { PARTNER_BASE };
+    private static final String[] PARTNER_WRITE_ROUTES = { PARTNER_BASE + "/*" };
+
+    private static final String[] PARTNER_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -435,6 +460,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, AI_ASSIST_ADMIN_WRITE_ROUTES).hasAnyRole(AI_ASSIST_ADMIN_ROLES)
                         .requestMatchers(HttpMethod.GET, AI_ASSIST_PUBLIC_READ_ROUTES).authenticated()
                         .requestMatchers(AI_ASSIST_CHAT_ROUTES).authenticated()
+
+                        .requestMatchers(HttpMethod.GET, PARTNER_PUBLIC_READ_ROUTES).permitAll()
+                        .requestMatchers(HttpMethod.GET, PARTNER_STAFF_READ_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.POST, PARTNER_CREATE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, PARTNER_WRITE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, PARTNER_WRITE_ROUTES).hasAnyRole(PARTNER_STAFF_ROLES)
 
                         .anyRequest().authenticated())
 
