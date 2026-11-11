@@ -6,6 +6,7 @@ import com.learningLadder.learningLadder.entity.tutorProfile.TutorProfile;
 import com.learningLadder.learningLadder.enums.bookingStatus.BookingStatus;
 import com.learningLadder.learningLadder.enums.paymentStatus.PaymentStatus;
 import com.learningLadder.learningLadder.enums.sessionMode.SessionMode;
+import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -204,7 +205,7 @@ public class Booking {
     private void computeDuration() {
         if (scheduledStart != null && scheduledEnd != null) {
             if (!scheduledEnd.isAfter(scheduledStart)) {
-                throw new IllegalStateException("Booking end time must be after its start time");
+                throw new BadRequestException("Booking end time must be after its start time");
             }
             durationMinutes = (int) Duration.between(scheduledStart, scheduledEnd).toMinutes();
         }

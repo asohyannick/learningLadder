@@ -12,11 +12,11 @@ public final class CacheNames {
     public static final String REVIEWS = "reviews";
     public static final String JOB_LISTINGS = "jobListings";
 
-    public static final String JOB_APPLICATION = "jobApplication";
-    public static final String JOB_APPLICATIONS = "jobApplications";
-    public static final String JOB_APPLICATION_SEARCH = "jobApplicationSearch";
-    public static final String JOB_APPLICATION_COUNT = "jobApplicationCount";
-    public static final String JOB_APPLICATION_PDF = "jobApplicationPdf";
+    public static final String AI_ASSIST = "aiAssist";
+    public static final String AI_ASSISTS = "aiAssists";
+    public static final String AI_ASSIST_SEARCH = "aiAssistSearch";
+    public static final String AI_ASSIST_COUNT = "aiAssistCount";
+    public static final String AI_ASSIST_PUBLIC = "aiAssistPublic";
 
     public static final String BOOKING = "booking";
     public static final String BOOKINGS = "bookings";

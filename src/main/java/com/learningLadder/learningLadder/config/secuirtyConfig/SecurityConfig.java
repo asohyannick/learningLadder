@@ -3,6 +3,7 @@ import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.config.jwtFilter.JWTFilter;
 import com.learningLadder.learningLadder.config.ratingLimiting.RateLimitingFilter;
 import com.learningLadder.learningLadder.enums.userRole.UserRole;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -285,6 +286,25 @@ public class SecurityConfig {
     private static final String[] LIBRARY_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
     private static final String[] LIBRARY_STUDENT_OR_STAFF_ROLES = roles(STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN);
 
+    private static final String AI_ASSIST_BASE = "/api/*/ai-assist";
+
+    private static final String[] AI_ASSIST_ADMIN_READ_ROUTES = { AI_ASSIST_BASE + "/assistants/admin/**" };
+    private static final String[] AI_ASSIST_ADMIN_CREATE_ROUTES = { AI_ASSIST_BASE + "/assistants" };
+    private static final String[] AI_ASSIST_ADMIN_WRITE_ROUTES = { AI_ASSIST_BASE + "/assistants/*" };
+    private static final String[] AI_ASSIST_PUBLIC_READ_ROUTES = {
+            AI_ASSIST_BASE + "/assistants",
+            AI_ASSIST_BASE + "/assistants/search",
+            AI_ASSIST_BASE + "/assistants/slug/*",
+            AI_ASSIST_BASE + "/assistants/*/remaining-messages"
+    };
+    private static final String[] AI_ASSIST_CHAT_ROUTES = {
+            AI_ASSIST_BASE + "/conversations",
+            AI_ASSIST_BASE + "/conversations/**",
+            AI_ASSIST_BASE + "/messages/*/feedback"
+    };
+
+    private static final String[] AI_ASSIST_ADMIN_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -329,39 +349,43 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler()))
 
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class, InfoEndpoint.class)).permitAll()
-                        .requestMatchers(EndpointRequest.toAnyEndpoint())
-                        .hasAnyRole(PLATFORM_ADMIN_ROLES)
+                        .requestMatchers(EndpointRequest.toAnyEndpoint()).hasAnyRole(PLATFORM_ADMIN_ROLES)
 
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
 
-                        .requestMatchers(HttpMethod.GET, ADMIN_READ_ROUTES)
-                        .hasAnyRole(PLATFORM_ADMIN_ROLES)
+                        .requestMatchers(HttpMethod.GET, ADMIN_READ_ROUTES).hasAnyRole(PLATFORM_ADMIN_ROLES)
 
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ROUTES).permitAll()
 
+                        // Courses
                         .requestMatchers(HttpMethod.GET, COURSE_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, COURSE_CREATE_ROUTES).hasAnyRole(COURSE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.PATCH, COURSE_UPDATE_ROUTES).hasAnyRole(COURSE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, COURSE_DELETE_ROUTES).hasAnyRole(COURSE_DELETE_ROLES)
 
+                        // Student profiles
                         .requestMatchers(HttpMethod.GET, STUDENT_PROFILE_READ_ROUTES).hasAnyRole(STUDENT_PROFILE_STAFF_ROLES)
                         .requestMatchers(HttpMethod.POST, STUDENT_PROFILE_CREATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, STUDENT_PROFILE_UPDATE_ROUTES).hasAnyRole(STUDENT_PROFILE_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, STUDENT_PROFILE_DELETE_ROUTES).hasAnyRole(STUDENT_PROFILE_MANAGE_ROLES)
 
+                        // Tutor profiles
                         .requestMatchers(HttpMethod.GET, TUTOR_PROFILE_READ_ROUTES).hasAnyRole(TUTOR_PROFILE_STAFF_ROLES)
                         .requestMatchers(HttpMethod.POST, TUTOR_PROFILE_CREATE_ROUTES).hasAnyRole(TUTOR_ROLES)
                         .requestMatchers(HttpMethod.PATCH, TUTOR_PROFILE_UPDATE_ROUTES).hasAnyRole(TUTOR_PROFILE_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, TUTOR_PROFILE_DELETE_ROUTES).hasAnyRole(TUTOR_PROFILE_MANAGE_ROLES)
 
+                        // Timetable
                         .requestMatchers(HttpMethod.GET, TIMETABLE_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, TIMETABLE_CREATE_ROUTES).hasAnyRole(TIMETABLE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.PUT, TIMETABLE_UPDATE_ROUTES).hasAnyRole(TIMETABLE_WRITE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, TIMETABLE_DELETE_ROUTES).hasAnyRole(TIMETABLE_DELETE_ROLES)
 
+                        // Reviews
                         .requestMatchers(HttpMethod.GET, REVIEW_DOWNLOAD_ROUTES).hasAnyRole(REVIEW_MODERATOR_ROLES)
                         .requestMatchers(HttpMethod.GET, REVIEW_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, REVIEW_CREATE_ROUTES).hasRole(STUDENT.name())
@@ -369,28 +393,33 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, REVIEW_UPDATE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, REVIEW_DELETE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
 
+                        // Job listings
                         .requestMatchers(HttpMethod.GET, JOB_LISTING_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, JOB_LISTING_CREATE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.PATCH, JOB_LISTING_UPDATE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.DELETE, JOB_LISTING_DELETE_ROUTES).hasAnyRole(JOB_LISTING_MANAGE_ROLES)
 
+                        // Job applications
                         .requestMatchers(HttpMethod.GET, JOB_APPLICATION_ADMIN_READ_ROUTES).hasAnyRole(JOB_APPLICATION_MANAGE_ROLES)
                         .requestMatchers(HttpMethod.GET, JOB_APPLICATION_SINGLE_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, JOB_APPLICATION_CREATE_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.PATCH, JOB_APPLICATION_UPDATE_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.DELETE, JOB_APPLICATION_DELETE_ROUTES).hasAnyRole(JOB_APPLICATION_MANAGE_ROLES)
 
+                        // Bookings
                         .requestMatchers(HttpMethod.GET, BOOKING_STAFF_READ_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
                         .requestMatchers(HttpMethod.GET, BOOKING_SINGLE_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, BOOKING_CREATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, BOOKING_UPDATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.DELETE, BOOKING_DELETE_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
 
+                        // Library: books
                         .requestMatchers(HttpMethod.GET, LIBRARY_BOOK_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, LIBRARY_BOOK_CREATE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
                         .requestMatchers(HttpMethod.PATCH, LIBRARY_BOOK_UPDATE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
                         .requestMatchers(HttpMethod.DELETE, LIBRARY_BOOK_DELETE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
 
+                        // Library: loans
                         .requestMatchers(HttpMethod.GET, LIBRARY_LOAN_STAFF_READ_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
                         .requestMatchers(HttpMethod.GET, LIBRARY_LOAN_SINGLE_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, LIBRARY_LOAN_BORROW_ROUTES).hasRole(STUDENT.name())
@@ -398,6 +427,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_STUDENT_ACTION_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_SHARED_ACTION_ROUTES).hasAnyRole(LIBRARY_STUDENT_OR_STAFF_ROLES)
                         .requestMatchers(HttpMethod.DELETE, LIBRARY_LOAN_DELETE_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
+
+                        // AI assistants & chat
+                        .requestMatchers(HttpMethod.GET, AI_ASSIST_ADMIN_READ_ROUTES).hasAnyRole(AI_ASSIST_ADMIN_ROLES)
+                        .requestMatchers(HttpMethod.POST, AI_ASSIST_ADMIN_CREATE_ROUTES).hasAnyRole(AI_ASSIST_ADMIN_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, AI_ASSIST_ADMIN_WRITE_ROUTES).hasAnyRole(AI_ASSIST_ADMIN_ROLES)
+                        .requestMatchers(HttpMethod.DELETE, AI_ASSIST_ADMIN_WRITE_ROUTES).hasAnyRole(AI_ASSIST_ADMIN_ROLES)
+                        .requestMatchers(HttpMethod.GET, AI_ASSIST_PUBLIC_READ_ROUTES).authenticated()
+                        .requestMatchers(AI_ASSIST_CHAT_ROUTES).authenticated()
 
                         .anyRequest().authenticated())
 
