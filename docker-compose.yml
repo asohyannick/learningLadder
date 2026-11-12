@@ -14,19 +14,14 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: "9000"
-      MINIO_USE_SSL: "false"
       PG_DATABASE_HOST: ${DOCKER_PG_HOST:-host.docker.internal}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "${API_HOST_PORT:-8070}:${PORT:-8070}"
     depends_on:
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
     networks:
       - learning-ladder-net
     logging:
@@ -34,23 +29,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  minio:
-    image: ${MINIO_IMAGE:-cgr.dev/chainguard/minio:latest}
-    container_name: learning-ladder-minio
-    restart: unless-stopped
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USERNAME:?MINIO_USERNAME is required}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:?MINIO_PASSWORD is required}
-      MINIO_SITE_REGION: ${MINIO_REGION:-us-east-1}
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - learning-ladder-net
 
   redis:
     image: redis:7-alpine
@@ -69,7 +47,7 @@ services:
     environment:
       REDISCLI_AUTH: ${REDIS_PASSWORD}
     ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_HOST_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -85,5 +63,4 @@ networks:
     driver: bridge
 
 volumes:
-  minio_data:
   redis_data:

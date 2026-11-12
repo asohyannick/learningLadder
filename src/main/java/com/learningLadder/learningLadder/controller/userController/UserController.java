@@ -12,11 +12,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api${app.api.version}/auth")
+@RequestMapping("/api/${app.api.version}/auth")
 @Tag(name = "Authentication and Authorization Endpoints",
         description = "Registration, verification, login, tokens, password reset and account management")
 @RequiredArgsConstructor
@@ -190,8 +192,96 @@ public class UserController {
                 request.getRequestURI()));
     }
 
+    @PostMapping(value = "/refresh-token",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @SecurityRequirement
+    @Operation(
+            summary = "Get a new access token",
+            description = """
+                    Exchanges a valid refresh token for a new access token AND a new refresh token
+                    (refresh token rotation). The refresh token you send stops working immediately:
+                    always store and use the new one returned here.
+
+                    Call this when the access token expires (HTTP 401 from other endpoints).
+                    No Authorization header is needed.
+
+                    Security: if an old (already used) refresh token is presented, the session is
+                    revoked and the user must log in again, because it may have been stolen.""",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = GenerateNewAccessToken.class),
+                            examples = @ExampleObject(name = "Refresh request", value = """
+                                    {
+                                      "refreshToken": "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI4YzFi...signature"
+                                    }
+                                    """))))
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "New access and refresh tokens issued",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = APISuccessResponse.class),
+                            examples = @ExampleObject(name = "Session refreshed", value = """
+                                    {
+                                      "success": true,
+                                      "status": 200,
+                                      "message": "Your session has been refreshed. Your previous refresh token is no longer valid, so use the new one from now on.",
+                                      "data": {
+                                        "accessToken": "eyJhbGciOiJIUzI1NiJ9...newAccess",
+                                        "accessTokenExpiresIn": 300,
+                                        "accessTokenExpiresAt": "2026-11-12T21:05:00Z",
+                                        "refreshToken": "eyJhbGciOiJIUzI1NiJ9...newRefresh",
+                                        "refreshTokenExpiresIn": 604800,
+                                        "refreshTokenExpiresAt": "2026-11-19T21:00:00Z",
+                                        "tokenType": "Bearer"
+                                      },
+                                      "path": "/api/v1/auth/refresh-token",
+                                      "timestamp": "2026-11-12T21:00:00Z"
+                                    }
+                                    """))),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Refresh token invalid, expired, already used, or the account can no longer sign in",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = APIErrorResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "Invalid or expired token", value = """
+                                            {
+                                              "success": false,
+                                              "status": 400,
+                                              "error": "Bad Request",
+                                              "errorCode": "BAD_REQUEST",
+                                              "message": "Invalid or expired refresh token",
+                                              "path": "/api/v1/auth/refresh-token",
+                                              "timestamp": "2026-11-12T21:00:00Z"
+                                            }
+                                            """),
+                                    @ExampleObject(name = "Blocked or unverified account", value = """
+                                            {
+                                              "success": false,
+                                              "status": 400,
+                                              "error": "Bad Request",
+                                              "errorCode": "BAD_REQUEST",
+                                              "message": "This account cannot refresh its session",
+                                              "path": "/api/v1/auth/refresh-token",
+                                              "timestamp": "2026-11-12T21:00:00Z"
+                                            }
+                                            """)
+                            })),
+            @ApiResponse(
+                    responseCode = "429",
+                    description = "Too many refresh attempts from this client",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = APIErrorResponse.class)))
+    })
     public ResponseEntity<APISuccessResponse<GenerateNewAccessTokenResponseDto>> generateNewAccessToken(
-            @Valid @RequestBody GenerateNewAccessToken generateNewAccessToken,
+            @Valid @RequestParam GenerateNewAccessToken generateNewAccessToken,
             HttpServletRequest request) {
 
         GenerateNewAccessTokenResponseDto tokens = userService.generateNewAccessToken(generateNewAccessToken);
@@ -424,10 +514,13 @@ public class UserController {
                             }))
     })
     public ResponseEntity<APISuccessResponse<UserResponseDto>> resetPassword(
+            @RequestParam("token")
+            TokenQueryDto token,
             @Valid @RequestBody ResetPasswordDto resetPasswordDto,
-            HttpServletRequest request) {
+            HttpServletRequest request
+    ) {
 
-        UserResponseDto user = userService.resetPassword(resetPasswordDto);
+        UserResponseDto user = userService.resetPassword(token, resetPasswordDto);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Your password has been changed successfully. Please log in with your new password.",
@@ -596,9 +689,10 @@ public class UserController {
     })
     public ResponseEntity<APISuccessResponse<UserResponseDto>> deleteAccount(
             @Valid @RequestBody DeleteAccountRequestDto deleteAccountRequestDto,
+            @RequestParam UUID userId,
             HttpServletRequest request) {
 
-        UserResponseDto deleted = userService.deleteAccount(deleteAccountRequestDto);
+        UserResponseDto deleted = userService.deleteAccount(userId, deleteAccountRequestDto);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Your account has been deleted. We're sorry to see you go.",
@@ -765,7 +859,7 @@ public class UserController {
                             }))
     })
     public ResponseEntity<APISuccessResponse<LoginResponseDto>> verifyMagicLinkToken(
-            @Valid @RequestBody VerifyMagicLinkTokenDto verifyMagicLinkTokenDto,
+            @Valid @RequestParam VerifyMagicLinkTokenDto verifyMagicLinkTokenDto,
             HttpServletRequest request) {
 
         LoginResponseDto loggedIn = userService.verifyMagicLinkToken(verifyMagicLinkTokenDto);

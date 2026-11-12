@@ -2,23 +2,24 @@ package com.learningLadder.learningLadder.service.userService;
 
 import com.learningLadder.learningLadder.config.backgroundJob.FireAndForgetEmailAsync.FireAndForgetEmailAsync;
 import com.learningLadder.learningLadder.config.cachingConfig.CacheNames.CacheNames;
-import com.learningLadder.learningLadder.config.firebaseAdminConfig.FirebaseAdminConfig;
 import com.learningLadder.learningLadder.config.firebaseAdminConfig.FirebaseTokenVerifier;
 import com.learningLadder.learningLadder.config.jwtConfig.JWTConfig;
-import com.learningLadder.learningLadder.config.resendConfig.ResendConfig;
-import com.learningLadder.learningLadder.config.resendConfig.emailService.EmailService;
 import com.learningLadder.learningLadder.config.resendConfig.resendEmailTemplateAsync.ResendEmailTemplateAsync;
 import com.learningLadder.learningLadder.dto.userDto.*;
 import com.learningLadder.learningLadder.entity.user.User;
 import com.learningLadder.learningLadder.enums.accountStatus.AccountStatus;
 import com.learningLadder.learningLadder.enums.userRole.UserRole;
 import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
+import com.learningLadder.learningLadder.exception.conflictRequestException.ConflictRequestException;
+import com.learningLadder.learningLadder.exception.forbiddenRequestException.ForbiddenRequestException;
 import com.learningLadder.learningLadder.mappers.userMapper.UserMapper;
 import com.learningLadder.learningLadder.repository.userRepository.UserRepository;
 import com.learningLadder.learningLadder.service.userDetails.CustomUserDetailsService;
+import com.learningLadder.learningLadder.utils.otpHasher.OtpHasher;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -35,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -45,8 +47,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class UserService {
-
+    private static final long OTP_RESEND_COOLDOWN_SECONDS = 60;
     private static final String TOKEN_TYPE = "Bearer";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -58,6 +61,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final FirebaseTokenVerifier firebaseTokenVerifier;
     private final CustomUserDetailsService customUserDetailsService;
+    private final OtpHasher otpHasher;
 
     @Value("${app.security.otp-expiry-minutes:10}")
     private int otpExpiryMinutes;
@@ -83,11 +87,8 @@ public class UserService {
         user.setRole(UserRole.STUDENT);
         user.setStatus(AccountStatus.UNVERIFIED);
         user.setAccountVerified(false);
-        user.setOptCodeVerified(false);
 
-        String otp = generateOtp();
-        user.setOtpCode(passwordEncoder.encode(otp));
-        user.setOptCodeExpirationDate(Instant.now().plus(otpExpiryMinutes, ChronoUnit.MINUTES));
+        String otp = assignNewOtp(user);
 
         User saved = saveNewUser(user);
 
@@ -102,7 +103,12 @@ public class UserService {
     }
 
     public UserResponseDto verifyOtpCode(VerifyOtpCodeDto verifyOtpCodeDto) {
-        User user = userRepository.findByEmailIgnoreCase(normalizeEmail(verifyOtpCodeDto.otpCode()))
+        String code = otpHasher.normalize(verifyOtpCodeDto.otpCode());
+        if (code.length() != OtpHasher.CODE_LENGTH) {
+            throw new BadRequestException("Invalid or expired verification code");
+        }
+
+        User user = userRepository.findByOtpCode(otpHasher.hash(code))
                 .filter(u -> !u.isAccountDeleted())
                 .orElseThrow(() -> new BadRequestException("Invalid or expired verification code"));
 
@@ -112,12 +118,8 @@ public class UserService {
         if (user.getStatus() == AccountStatus.VERIFIED || user.isAccountVerified()) {
             throw new BadRequestException("This account is already verified");
         }
-        if (user.getOtpCode() == null || user.getOptCodeExpirationDate() == null
-                || user.getOptCodeExpirationDate().isBefore(Instant.now())) {
+        if (user.getOptCodeExpirationDate() == null || user.getOptCodeExpirationDate().isBefore(Instant.now())) {
             throw new BadRequestException("Verification code has expired. Please request a new one.");
-        }
-        if (!passwordEncoder.matches(verifyOtpCodeDto.otpCode(), user.getOtpCode())) {
-            throw new BadRequestException("Invalid or expired verification code");
         }
 
         user.setStatus(AccountStatus.VERIFIED);
@@ -242,19 +244,17 @@ public class UserService {
         }
 
         Instant now = Instant.now();
-        if (user.getOtpCode() != null
-                && user.getOptCodeExpirationDate() != null
-                && user.getOptCodeExpirationDate().isAfter(now)) {
-            long secondsLeft = java.time.Duration.between(now, user.getOptCodeExpirationDate()).getSeconds();
-            long minutesLeft = Math.max(1, (secondsLeft + 59) / 60);
-            throw new BadRequestException("Your current code is still valid. Please use it or try again in "
-                    + minutesLeft + (minutesLeft == 1 ? " minute." : " minutes."));
+        if (user.getOtpCode() != null && user.getOptCodeExpirationDate() != null) {
+            Instant issuedAt = user.getOptCodeExpirationDate().minus(otpExpiryMinutes, ChronoUnit.MINUTES);
+            long secondsSinceIssued = Duration.between(issuedAt, now).getSeconds();
+            if (secondsSinceIssued < OTP_RESEND_COOLDOWN_SECONDS) {
+                long wait = OTP_RESEND_COOLDOWN_SECONDS - secondsSinceIssued;
+                throw new BadRequestException("A code was just sent. Please wait " + wait
+                        + (wait == 1 ? " second" : " seconds") + " before requesting a new one.");
+            }
         }
 
-        String otp = generateOtp();
-        user.setOtpCode(passwordEncoder.encode(otp));
-        user.setOptCodeExpirationDate(now.plus(otpExpiryMinutes, ChronoUnit.MINUTES));
-        user.setOptCodeVerified(false);
+        String otp = assignNewOtp(user);
         User saved = userRepository.save(user);
 
         final String to = saved.getEmail();
@@ -275,7 +275,7 @@ public class UserService {
             claims = jwtConfig.parseRefreshToken(presented);
         } catch (io.jsonwebtoken.ExpiredJwtException ex) {
             throw new BadRequestException("Refresh token has expired");
-        } catch (JwtException | IllegalArgumentException ex) {
+        } catch (JwtException | BadRequestException ex) {
             throw new BadRequestException("Invalid refresh token");
         }
 
@@ -326,14 +326,14 @@ public class UserService {
         return toUserResponse(saved);
     }
 
-    public UserResponseDto resetPassword(ResetPasswordDto resetPasswordDto) {
+    public UserResponseDto resetPassword(TokenQueryDto tokenQuery,  ResetPasswordDto resetPasswordDto) {
         String invalid = "Invalid or expired reset link";
 
         if (!resetPasswordDto.newPassword().equals(resetPasswordDto.confirmPassword())) {
             throw new BadRequestException("Passwords do not match");
         }
 
-        User user = userRepository.findByForgotPassword(sha256(resetPasswordDto.token()))
+        User user = userRepository.findByForgotPassword(sha256(tokenQuery.token()))
                 .filter(u -> !u.isAccountDeleted())
                 .orElseThrow(() -> new BadRequestException(invalid));
 
@@ -420,28 +420,33 @@ public class UserService {
         return toUserResponse(saved);
     }
 
-    public UserResponseDto deleteAccount(DeleteAccountRequestDto deleteAccountRequestDto) {
-        User user = currentUser();
+    public UserResponseDto deleteAccount(UUID userId, DeleteAccountRequestDto deleteAccountRequestDto) {
+        User current = currentUser();
 
-        if (user.getPassword() == null
-                || !passwordEncoder.matches(deleteAccountRequestDto.password(), user.getPassword())) {
+        if(!String.valueOf(current.getId()).equalsIgnoreCase(String.valueOf(userId))) {
+            log.warn("Account deletion refused: token belongs to {} ({}), but userId {} was requested",
+                    current.getId(), current.getEmail(), userId);
+            throw new ForbiddenRequestException("You can only delete your own account");
+        }
+        if (current.getPassword() == null
+                || !passwordEncoder.matches(deleteAccountRequestDto.password(), current.getPassword())) {
             throw new BadRequestException("Incorrect password");
         }
-        if (user.getRole() == UserRole.SUPER_ADMIN) {
+        if (current.getRole() == UserRole.SUPER_ADMIN) {
             throw new BadRequestException("A super admin account cannot be deleted");
         }
 
-        user.setAccountDeleted(true);
-        user.setRefreshToken(null);
-        user.setAccessToken(null);
-        user.setForgotPassword(null);
-        user.setForgotPasswordExpirationDate(null);
-        user.setOtpCode(null);
-        user.setOptCodeExpirationDate(null);
-        user.setMagicLinkToken(null);
-        user.setMagicLinkTokenExpirationDate(null);
+        current.setAccountDeleted(true);
+        current.setRefreshToken(null);
+        current.setAccessToken(null);
+        current.setForgotPassword(null);
+        current.setForgotPasswordExpirationDate(null);
+        current.setOtpCode(null);
+        current.setOptCodeExpirationDate(null);
+        current.setMagicLinkToken(null);
+        current.setMagicLinkTokenExpirationDate(null);
 
-        return toUserResponse(userRepository.save(user));
+        return toUserResponse(userRepository.save(current));
     }
 
     public UserResponseDto sentMagicLinkToken(SendMagicLinkTokenDto sendMagicLinkTokenDto) {
@@ -612,10 +617,6 @@ public class UserService {
         return email == null ? "" : email.trim().toLowerCase();
     }
 
-    private String generateOtp() {
-        return String.format("%06d", RANDOM.nextInt(1_000_000));
-    }
-
     private String sha256(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -730,5 +731,19 @@ public class UserService {
             return new String[]{name, null};
         }
         return new String[]{name.substring(0, space).trim(), name.substring(space + 1).trim()};
+    }
+
+    private String assignNewOtp(User user) {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String code = otpHasher.generateCode();
+            String hash = otpHasher.hash(code);
+            if (!userRepository.existsByOtpCode(hash)) {
+                user.setOtpCode(hash);
+                user.setOptCodeExpirationDate(Instant.now().plus(Duration.ofMinutes(10)));
+                user.setOptCodeVerified(false);
+                return code;
+            }
+        }
+        throw new ConflictRequestException("Could not generate a verification code. Please try again.");
     }
 }

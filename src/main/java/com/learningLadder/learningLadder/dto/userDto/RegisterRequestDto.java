@@ -62,13 +62,5 @@ public record RegisterRequestDto(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s]).+$",
                 message = "Password must contain an uppercase letter, a lowercase letter, a digit and a special character"
         )
-        String password,
-
-        @Schema(
-                description = "Role requested at registration",
-                example = "STUDENT",
-                requiredMode = Schema.RequiredMode.REQUIRED
-        )
-        @NotNull(message = "Role is required")
-        UserRole role
+        String password
 ) { }

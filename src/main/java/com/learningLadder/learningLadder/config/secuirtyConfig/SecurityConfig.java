@@ -60,6 +60,7 @@ public class SecurityConfig {
             AUTH_BASE + "/verify-otp",
             AUTH_BASE + "/login",
             AUTH_BASE + "/refresh-token",
+            AUTH_BASE + "/refresh-token",
             AUTH_BASE + "/resend-otp",
             AUTH_BASE + "/logout",
             AUTH_BASE + "/forgot-password",
@@ -528,11 +529,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private AuthenticationEntryPoint authenticationEntryPoint() {
-        return (request, response, ex) -> writeError(request, response,
-                HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Authentication is required to access this resource");
-    }
-
     private AccessDeniedHandler accessDeniedHandler() {
         return (request, response, ex) -> writeError(request, response,
                 HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have permission to access this resource");
@@ -545,5 +541,17 @@ public class SecurityConfig {
         response.setCharacterEncoding("UTF-8");
         objectMapper.writeValue(response.getWriter(),
                 APIErrorResponse.of(status, errorCode, message, request.getRequestURI()));
+    }
+
+    private AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, ex) -> {
+            Object attr = request.getAttribute(JWTFilter.AUTH_ERROR_ATTR);
+            if (attr instanceof JWTFilter.AuthError err) {
+                writeError(request, response, HttpStatus.UNAUTHORIZED, err.code(), err.message());
+            } else {
+                writeError(request, response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED",
+                        "Authentication is required to access this resource");
+            }
+        };
     }
 }

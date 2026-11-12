@@ -47,7 +47,7 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("api/${app.api.version}/student-profile")
+@RequestMapping("/api/${app.api.version}/student-profile")
 @Tag(name = "Student Profile Management Endpoints",
         description = "Create, view, update, delete, search and export student profiles")
 @SecurityRequirement(name = "bearerAuth")

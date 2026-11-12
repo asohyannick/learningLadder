@@ -55,6 +55,7 @@ app:
     version: ${API_VERSION}
 
   security:
+    otp-hash-secret: ${OTP_HASH_SECRET}
     jwt:
       access-token: ${JWT_ACCESS_TOKEN}
       refresh-token: ${JWT_REFRESH_TOKEN}

@@ -7,11 +7,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record ResetPasswordDto(
-        @Schema(description = "Reset token from the link in the email", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotBlank(message = "Reset token is required")
-        @Size(max = 255, message = "Reset token is too long")
-        String token,
-
         @Schema(
                 description = "New password: 8-72 characters with upper and lower case letters, a digit and a special character",
                 example = "********",
