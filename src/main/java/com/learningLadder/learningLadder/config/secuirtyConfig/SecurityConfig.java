@@ -149,7 +149,11 @@ public class SecurityConfig {
             ADMISSIONS_OFFICER, STUDENT_REGISTRAR);
 
     private static final String[] TUTOR_ROLES = roles(
-            LECTURER, PROFESSOR, ASSISTANT_LECTURER);
+            SUPER_ADMIN,
+            LECTURER,
+            PROFESSOR,
+            ASSISTANT_LECTURER
+    );
 
     private static final String[] TUTOR_PROFILE_MANAGE_ROLES = roles(
             LECTURER, PROFESSOR, ASSISTANT_LECTURER,
@@ -546,8 +550,8 @@ public class SecurityConfig {
     private AuthenticationEntryPoint authenticationEntryPoint() {
         return (request, response, ex) -> {
             Object attr = request.getAttribute(JWTFilter.AUTH_ERROR_ATTR);
-            if (attr instanceof JWTFilter.AuthError err) {
-                writeError(request, response, HttpStatus.UNAUTHORIZED, err.code(), err.message());
+            if (attr instanceof JWTFilter.AuthError(String code, String message)) {
+                writeError(request, response, HttpStatus.UNAUTHORIZED, code, message);
             } else {
                 writeError(request, response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED",
                         "Authentication is required to access this resource");

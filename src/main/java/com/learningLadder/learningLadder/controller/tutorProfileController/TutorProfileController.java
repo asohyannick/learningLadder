@@ -56,7 +56,7 @@ public class TutorProfileController {
             "hasAnyRole('SUPER_ADMIN','ADMIN','IT_ADMIN','REGISTRAR','DEPUTY_REGISTRAR',"
                     + "'ADMISSIONS_OFFICER','STUDENT_REGISTRAR')";
 
-    private static final String TUTORS = "hasAnyRole('LECTURER','PROFESSOR','ASSISTANT_LECTURER')";
+    private static final String TUTORS = "hasAnyRole('LECTURER','PROFESSOR','ASSISTANT_LECTURER','SUPER_ADMIN')";
 
     private static final DateTimeFormatter FILE_STAMP = DateTimeFormatter
             .ofPattern("yyyyMMdd-HHmm")
