@@ -127,7 +127,11 @@ public class SecurityConfig {
             ADMISSIONS_OFFICER, STUDENT_REGISTRAR);
 
     private static final String[] STUDENT_PROFILE_MANAGE_ROLES = roles(
-            STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN);
+            STUDENT,
+            SUPER_ADMIN,
+            ADMIN,
+            IT_ADMIN
+    );
 
     private static final String TUTOR_PROFILE_BASE = "/api/*/tutor-profile";
 
@@ -144,9 +148,14 @@ public class SecurityConfig {
     private static final String[] TUTOR_PROFILE_DELETE_ROUTES = { TUTOR_PROFILE_BASE + "/*" };
 
     private static final String[] TUTOR_PROFILE_STAFF_ROLES = roles(
-            SUPER_ADMIN, ADMIN, IT_ADMIN,
-            REGISTRAR, DEPUTY_REGISTRAR,
-            ADMISSIONS_OFFICER, STUDENT_REGISTRAR);
+            SUPER_ADMIN,
+            ADMIN,
+            IT_ADMIN,
+            REGISTRAR,
+            DEPUTY_REGISTRAR,
+            ADMISSIONS_OFFICER,
+            STUDENT_REGISTRAR
+    );
 
     private static final String[] TUTOR_ROLES = roles(
             SUPER_ADMIN,
@@ -156,8 +165,13 @@ public class SecurityConfig {
     );
 
     private static final String[] TUTOR_PROFILE_MANAGE_ROLES = roles(
-            LECTURER, PROFESSOR, ASSISTANT_LECTURER,
-            SUPER_ADMIN, ADMIN, IT_ADMIN);
+            LECTURER,
+            PROFESSOR,
+            ASSISTANT_LECTURER,
+            SUPER_ADMIN,
+            ADMIN,
+            IT_ADMIN
+    );
 
     private static final String TIMETABLE_BASE = "/api/*/time-table";
 
