@@ -1,13 +1,16 @@
 package com.learningLadder.learningLadder.exception.globalExceptionHandler;
 
+import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
 import com.learningLadder.learningLadder.exception.conflictRequestException.ConflictRequestException;
+import com.learningLadder.learningLadder.exception.fileStorageException.FileStorageException;
 import com.learningLadder.learningLadder.exception.forbiddenRequestException.ForbiddenRequestException;
 import com.learningLadder.learningLadder.exception.globalExceptionResponseHandler.GlobalExceptionResponseHandler;
 import com.learningLadder.learningLadder.exception.internalServerException.InternalServerException;
 import com.learningLadder.learningLadder.exception.notFoundRequestException.NotFoundRequestException;
 import com.learningLadder.learningLadder.exception.unAuthorizedRequestException.UnAuthorizedRequestException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import java.time.Instant;
 @RestControllerAdvice
+@Slf4j
 public class GeneralExceptionHandler {
 
     private ResponseEntity<GlobalExceptionResponseHandler> buildResponse(
@@ -151,5 +155,14 @@ public class GeneralExceptionHandler {
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 request
         );
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<APIErrorResponse> handleFileStorage(FileStorageException ex, HttpServletRequest request) {
+        log.error("File storage failure on {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        HttpStatus status = HttpStatus.SERVICE_UNAVAILABLE;
+        return ResponseEntity.status(status).body(APIErrorResponse.of(status, "FILE_STORAGE_ERROR",
+                "The file could not be stored right now. Please try again in a moment.",
+                request.getRequestURI()));
     }
 }

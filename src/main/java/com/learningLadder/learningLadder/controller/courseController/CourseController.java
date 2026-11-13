@@ -4,7 +4,7 @@ import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.config.apiResponse.APISuccessResponse;
 import com.learningLadder.learningLadder.dto.courseDto.*;
 import com.learningLadder.learningLadder.entity.user.User;
-import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
+import com.learningLadder.learningLadder.repository.userRepository.UserRepository;
 import com.learningLadder.learningLadder.service.courseService.CourseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +57,7 @@ public class CourseController {
     private static final String WRITE_ROLES = "hasAnyRole('SUPER_ADMIN','ADMIN','ACADEMIC_DIRECTOR','DEAN','HEAD_OF_DEPARTMENT','PROFESSOR','LECTURER')";
 
     private final CourseService courseService;
+    private final UserRepository userRepository;
 
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -134,21 +136,42 @@ public class CourseController {
                 "Course fetched successfully", courseService.fetchCourse(id), request.getRequestURI()));
     }
 
-    @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize(WRITE_ROLES)
-    @Operation(summary = "Update a course", description = "Partial update: omitted (null) fields keep their current value.")
+    @Operation(summary = "Update a course with files",
+            description = "Multipart request. The optional 'data' part is JSON (Content-Type: application/json) with "
+                    + "the fields to change; omitted fields keep their current value. Each file part is optional: "
+                    + "a new thumbnail, promo video or syllabus replaces the current one, materials are added.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Course updated"),
+            @ApiResponse(responseCode = "400", description = "Validation failed",
+                    content = @Content(schema = @Schema(implementation = APIErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Course not found",
+                    content = @Content(schema = @Schema(implementation = APIErrorResponse.class))),
+            @ApiResponse(responseCode = "413", description = "Upload too large",
+                    content = @Content(schema = @Schema(implementation = APIErrorResponse.class))),
+            @ApiResponse(responseCode = "415", description = "Wrong file type for a part",
                     content = @Content(schema = @Schema(implementation = APIErrorResponse.class)))
     })
-    public ResponseEntity<APISuccessResponse<CourseResponseDto>> updateCourse(
+    public ResponseEntity<APISuccessResponse<CourseResponseDto>> updateCourseWithFiles(
             @Parameter(description = "Course ID") @PathVariable UUID id,
-            @Valid @org.springframework.web.bind.annotation.RequestBody UpdateCourseRequestDto body,
+            @Valid @RequestPart(value = "data", required = false) UpdateCourseRequestDto data,
+            @Parameter(description = "New cover image (replaces the current one)")
+            @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
+            @Parameter(description = "New trailer video (replaces the current one)")
+            @RequestPart(value = "promoVideo", required = false) MultipartFile promoVideo,
+            @Parameter(description = "New syllabus PDF (replaces the current one)")
+            @RequestPart(value = "syllabus", required = false) MultipartFile syllabus,
+            @Parameter(description = "Extra materials (added to the existing ones)")
+            @RequestPart(value = "materials", required = false) List<MultipartFile> materials,
+            Authentication authentication,
             HttpServletRequest request) {
 
+        CourseResponseDto updated = courseService.updateCourseWithFiles(
+                id, data, thumbnail, promoVideo, syllabus, materials, currentUserId(authentication));
+
         return ResponseEntity.ok(APISuccessResponse.ok(
-                "Course updated successfully", courseService.updateCourse(id, body), request.getRequestURI()));
+                "Course updated successfully", updated, request.getRequestURI()));
     }
 
     @DeleteMapping("/{id}")
@@ -188,16 +211,19 @@ public class CourseController {
     }
 
     private UUID currentUserId(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
+
         if (authentication.getPrincipal() instanceof User user) {
-            return user.getId();
+            return UUID.fromString(String.valueOf(user.getId()));
         }
-        try {
-            return UUID.fromString(authentication.getName());
-        } catch (BadRequestException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unable to resolve the current user");
-        }
+
+        return userRepository.findByEmailIgnoreCase(authentication.getName())
+                .filter(user -> !user.isAccountDeleted())
+                .map(user -> UUID.fromString(String.valueOf(user.getId())))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Unable to resolve the current user. Please log in again."));
     }
 }

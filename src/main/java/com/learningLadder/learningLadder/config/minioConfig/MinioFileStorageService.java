@@ -7,11 +7,13 @@ import io.minio.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.InputStream;
 import java.time.Duration;
@@ -183,16 +185,22 @@ public class MinioFileStorageService {
         }
     }
 
+
     private void validate(MultipartFile file, FileCategory category) {
         if (file == null || file.isEmpty()) {
-            throw new FileStorageException("File is empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The " + category.name().toLowerCase(Locale.ROOT) + " file is empty");
         }
         if (file.getSize() > category.getMaxBytes()) {
-            throw new FileStorageException("File too large. Maximum for " + category + " is "
-                    + (category.getMaxBytes() / (1024 * 1024)) + " MB");
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+                    "File too large. The maximum for " + category.name().toLowerCase(Locale.ROOT) + " files is "
+                            + (category.getMaxBytes() / (1024 * 1024)) + " MB");
         }
         if (!category.allows(file.getContentType())) {
-            throw new FileStorageException("File type '" + file.getContentType() + "' is not allowed for " + category);
+            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    "'" + safeFileName(file.getOriginalFilename()) + "' (" + file.getContentType()
+                            + ") is not allowed here: this field expects a "
+                            + category.name().toLowerCase(Locale.ROOT) + " file");
         }
     }
 

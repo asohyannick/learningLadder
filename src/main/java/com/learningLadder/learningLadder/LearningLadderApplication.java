@@ -10,5 +10,4 @@ public class LearningLadderApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(LearningLadderApplication.class, args);
 	}
-
 }

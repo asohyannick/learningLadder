@@ -11,6 +11,7 @@ import com.learningLadder.learningLadder.mappers.courseMapper.CourseMapper;
 import com.learningLadder.learningLadder.repository.courseRepository.CourseRepository;
 import com.learningLadder.learningLadder.repository.courseRepository.CourseSpecifications;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -27,6 +28,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -39,6 +42,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CourseService {
 
     private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 100;
@@ -133,10 +137,23 @@ public class CourseService {
 
     @Transactional
     @CacheEvict(cacheNames = CacheNames.COURSES, allEntries = true)
-    public CourseResponseDto updateCourse(UUID id, UpdateCourseRequestDto request) {
-        Course course = getCourseWithDetails(id);
-        courseMapper.updateEntity(request, course);
+    public CourseResponseDto updateCourseWithFiles(UUID id,
+                                                   UpdateCourseRequestDto request,
+                                                   MultipartFile thumbnail,
+                                                   MultipartFile promoVideo,
+                                                   MultipartFile syllabus,
+                                                   List<MultipartFile> materialFiles,
+                                                   UUID userId) {
 
+        Course course = getCourseWithDetails(id);
+
+        List<StoredFile> uploaded = new ArrayList<>();
+        List<StoredFile> replaced = new ArrayList<>();
+        cleanUpFilesAfterTransaction(uploaded, replaced);
+
+        if (request != null) {
+            courseMapper.updateEntity(request, course);
+        }
         if (course.getPrice() != null && course.getDiscount() != null
                 && course.getDiscount().compareTo(course.getPrice()) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount cannot exceed price");
@@ -144,9 +161,53 @@ public class CourseService {
         if (course.isPublished() && course.getPublishedAt() == null) {
             course.setPublishedAt(Instant.now());
         }
-        return courseMapper.toResponse(course);   // dirty-checking flushes the changes at commit
-    }
 
+        StoredFile newThumbnail = uploadIfPresent(thumbnail, FileCategory.IMAGE, userId, uploaded);
+        if (newThumbnail != null) {
+            addIfPresent(replaced, course.getThumbnail());
+            course.setThumbnail(newThumbnail);
+        }
+
+        StoredFile newPromoVideo = uploadIfPresent(promoVideo, FileCategory.VIDEO, userId, uploaded);
+        if (newPromoVideo != null) {
+            addIfPresent(replaced, course.getPromoVideo());
+            course.setPromoVideo(newPromoVideo);
+        }
+
+        StoredFile newSyllabus = uploadIfPresent(syllabus, FileCategory.DOCUMENT, userId, uploaded);
+        if (newSyllabus != null) {
+            addIfPresent(replaced, course.getSyllabus());
+            course.setSyllabus(newSyllabus);
+        }
+
+        int order = course.getMaterials().stream()
+                .map(CourseMaterial::getSortOrder)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(-1) + 1;
+
+        for (MultipartFile file : materialFiles == null ? List.<MultipartFile>of() : materialFiles) {
+            if (file == null || file.isEmpty()) continue;
+
+            StoredFile stored = storage.upload(file, FileCategory.fromContentType(file.getContentType()), userId);
+            uploaded.add(stored);
+
+            CourseMaterial material = new CourseMaterial();
+            material.setFile(stored);
+            material.setTitle(stored.getOriginalFileName());
+            material.setSortOrder(order++);
+            course.addMaterial(material);
+        }
+
+        Course saved = courseRepository.saveAndFlush(course);
+
+        if (!uploaded.isEmpty() || !replaced.isEmpty()) {
+            log.info("Course {} updated: {} file(s) uploaded, {} replaced file(s) scheduled for deletion",
+                    saved.getId(), uploaded.size(), replaced.size());
+        }
+        return courseMapper.toResponse(saved);
+    }
 
     @CacheEvict(cacheNames = CacheNames.COURSES, allEntries = true)
     public void deleteCourse(UUID id) {
@@ -386,5 +447,44 @@ public class CourseService {
         private float width(String s, PDType1Font font, float size) throws IOException {
             return font.getStringWidth(s) / 1000f * size;
         }
+
+    }
+
+    private static void addIfPresent(List<StoredFile> list, StoredFile file) {
+        if (file != null) {
+            list.add(file);
+        }
+    }
+
+    /**
+     * Storage is not part of the database transaction, so it is cleaned up when the transaction ends:
+     * - committed:   delete the OLD files that were replaced (the course now points to the new ones)
+     * - rolled back: delete the NEW files uploaded during this request (the course still points to the old ones)
+     */
+    private void cleanUpFilesAfterTransaction(List<StoredFile> uploaded, List<StoredFile> replaced) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_COMMITTED) {
+                    for (StoredFile old : replaced) {
+                        try {
+                            storage.delete(old.getId());
+                        } catch (RuntimeException ex) {
+                            log.warn("Could not delete replaced file {} ({}): {}",
+                                    old.getId(), old.getObjectKey(), ex.getMessage());
+                        }
+                    }
+                } else {
+                    for (StoredFile created : uploaded) {
+                        try {
+                            storage.deleteFile(created.getObjectKey());
+                        } catch (RuntimeException ex) {
+                            log.warn("Could not remove uploaded object {} after a failed update: {}",
+                                    created.getObjectKey(), ex.getMessage());
+                        }
+                    }
+                }
+            }
+        });
     }
 }
