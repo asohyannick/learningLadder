@@ -10,6 +10,7 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Component;
 
+import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -20,7 +21,6 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
 
 @Component
 public class TimeTablePdfGenerator {
@@ -38,11 +38,12 @@ public class TimeTablePdfGenerator {
     private static final float[] WIDTHS = {130f, 150f, 150f, 80f, 60f, 130f, 69f};
     private static final float TABLE_WIDTH = 769f;
 
-    private static final int[] BRAND = {79, 70, 229};
-    private static final int[] STRIPE = {249, 250, 251};
-    private static final int[] WHITE = {255, 255, 255};
-    private static final int[] INK = {31, 41, 55};
-    private static final int[] MUTED = {107, 114, 128};
+    private static final Color BRAND = new Color(79, 70, 229);
+    private static final Color STRIPE = new Color(249, 250, 251);
+    private static final Color WHITE = new Color(255, 255, 255);
+    private static final Color INK = new Color(31, 41, 55);
+    private static final Color MUTED = new Color(107, 114, 128);
+    private static final Color GRID = new Color(229, 231, 235);
 
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("EEE, dd MMM yyyy", Locale.ENGLISH);
@@ -64,6 +65,10 @@ public class TimeTablePdfGenerator {
             throw new UncheckedIOException("Could not generate the timetable PDF", ex);
         }
     }
+
+    // =====================================================================
+    // Row content
+    // =====================================================================
 
     private static String[] toCells(TimeTableResponseDto t) {
         String date = t.recurring() && t.dayOfWeek() != null
@@ -103,11 +108,15 @@ public class TimeTablePdfGenerator {
         return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
+    // =====================================================================
+    // Text helpers
+    // =====================================================================
 
     private static float width(String text, PDFont font, float size) throws IOException {
         return font.getStringWidth(text) / 1000f * size;
     }
 
+    /** Replaces characters the standard font cannot draw (e.g. emoji) with '?'. */
     private static String sanitize(String text, PDFont font) {
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < text.length(); ) {
@@ -128,6 +137,7 @@ public class TimeTablePdfGenerator {
         return out.toString().replaceAll(" +", " ").trim();
     }
 
+    /** Wraps text to the column width; long cells are cut after MAX_CELL_LINES with "...". */
     private static List<String> wrap(String text, PDFont font, float size, float maxWidth) throws IOException {
         List<String> lines = new ArrayList<>();
 
@@ -181,6 +191,7 @@ public class TimeTablePdfGenerator {
         return lines;
     }
 
+    /** How many characters of a too-long word fit on one line (at least 1). */
     private static int fitting(String word, PDFont font, float size, float maxWidth) throws IOException {
         int cut = 1;
         while (cut < word.length() && width(word.substring(0, cut + 1), font, size) <= maxWidth) {
@@ -188,6 +199,10 @@ public class TimeTablePdfGenerator {
         }
         return cut;
     }
+
+    // =====================================================================
+    // PDF builder
+    // =====================================================================
 
     private static final class Builder implements AutoCloseable {
 
@@ -225,6 +240,7 @@ public class TimeTablePdfGenerator {
             }
             float height = lineCount * LEADING + 2 * PAD;
 
+            // Not enough room left: continue on a new page and repeat the header row
             if (y - height < MARGIN) {
                 newPage();
                 if (!header) {
@@ -233,8 +249,7 @@ public class TimeTablePdfGenerator {
             }
 
             if (header || shaded) {
-                int[] fill = header ? BRAND : STRIPE;
-                stream.setNonStrokingColor(fill[0], fill[1], fill[2]);
+                stream.setNonStrokingColor(header ? BRAND : STRIPE);
                 stream.addRect(MARGIN, y - height, TABLE_WIDTH, height);
                 stream.fill();
             }
@@ -249,7 +264,7 @@ public class TimeTablePdfGenerator {
                 x += WIDTHS[i];
             }
 
-            stream.setStrokingColor(229, 231, 235);
+            stream.setStrokingColor(GRID);
             stream.setLineWidth(0.5f);
             stream.moveTo(MARGIN, y - height);
             stream.lineTo(MARGIN + TABLE_WIDTH, y - height);
@@ -258,6 +273,7 @@ public class TimeTablePdfGenerator {
             y -= height;
         }
 
+        /** Adds "Page X of Y" footers (only known at the end) and returns the PDF bytes. */
         byte[] finish() throws IOException {
             closeStream();
             int total = pages.size();
@@ -265,7 +281,7 @@ public class TimeTablePdfGenerator {
                 String label = "Page " + (i + 1) + " of " + total;
                 try (PDPageContentStream footer = new PDPageContentStream(
                         doc, pages.get(i), PDPageContentStream.AppendMode.APPEND, true, true)) {
-                    footer.setNonStrokingColor(MUTED[0], MUTED[1], MUTED[2]);
+                    footer.setNonStrokingColor(MUTED);
 
                     footer.beginText();
                     footer.setFont(regular, 8f);
@@ -308,9 +324,9 @@ public class TimeTablePdfGenerator {
             }
         }
 
-        private void text(String value, PDFont font, float size, float x, float baseline, int[] rgb)
+        private void text(String value, PDFont font, float size, float x, float baseline, Color color)
                 throws IOException {
-            stream.setNonStrokingColor(rgb[0], rgb[1], rgb[2]);
+            stream.setNonStrokingColor(color);
             stream.beginText();
             stream.setFont(font, size);
             stream.newLineAtOffset(x, baseline);

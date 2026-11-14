@@ -339,12 +339,23 @@ public class TimeTableService {
         }
         String name = authentication.getName();
 
-        Optional<User> user;
-        try {
+        Optional<User> user = userRepository.findByEmailIgnoreCase(name);
+
+        if (user.isEmpty() && isUuid(name)) {
             user = userRepository.findById(UUID.fromString(name));
-        } catch (BadRequestException notAUuid) {
-            user = userRepository.findByEmail(name);
         }
-        return user.orElseThrow(() -> new BadRequestException("User account not found"));
+
+        return user
+                .filter(u -> !u.isAccountDeleted())
+                .orElseThrow(() -> new BadRequestException("User account not found"));
+    }
+
+    private static boolean isUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return true;
+        } catch (BadRequestException ex) {
+            return false;
+        }
     }
 }
