@@ -9,8 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,18 +37,22 @@ public class MinioFileStorageService {
     private final MinioClient publicClient;
     private final MinioConfig config;
     private final StoredFileRepository repository;
+    private final TransactionTemplate refreshTransaction;
 
     public MinioFileStorageService(
             MinioClient minioClient,
             @Qualifier("minioPublicClient")
             MinioClient publicClient,
             MinioConfig config,
-            StoredFileRepository repository
+            StoredFileRepository repository,
+            PlatformTransactionManager transactionManager
     ) {
         this.minioClient = minioClient;
         this.publicClient = publicClient;
         this.config = config;
         this.repository = repository;
+        this.refreshTransaction = new TransactionTemplate(transactionManager);
+        this.refreshTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     // =====================================================================
@@ -94,19 +101,24 @@ public class MinioFileStorageService {
      * REQUIRES_NEW so the refresh is really written even when the caller is a
      * @Transactional(readOnly = true) read method (writes inside a read-only transaction are silently lost).
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String resolveUrl(StoredFile file) {
+        if (file == null) {
+            return null;
+        }
         Instant refreshWhenBefore = Instant.now()
                 .plus(Duration.ofHours(config.getPresignedRefreshThresholdHours()));
 
-        if (file.getPresignedUrl() != null
+        boolean usable = file.getPresignedUrl() != null
                 && file.getPresignedUrlExpiresAt() != null
-                && file.getPresignedUrlExpiresAt().isAfter(refreshWhenBefore)) {
+                && file.getPresignedUrlExpiresAt().isAfter(refreshWhenBefore)
+                && signedForCurrentHost(file.getPresignedUrl());
+        if (usable) {
             return file.getPresignedUrl();
         }
 
         SignedUrl signed = sign(file.getObjectKey());
-        repository.updatePresignedUrl(file.getId(), signed.url(), signed.expiresAt(), Instant.now());
+        refreshTransaction.executeWithoutResult(status ->
+                repository.updatePresignedUrl(file.getId(), signed.url(), signed.expiresAt(), Instant.now()));
 
         file.setPresignedUrl(signed.url());
         file.setPresignedUrlExpiresAt(signed.expiresAt());
@@ -232,5 +244,16 @@ public class MinioFileStorageService {
         } catch (Exception ex) {
             log.warn("Could not remove MinIO object [{}]: {}", objectKey, ex.getMessage());
         }
+    }
+
+    private boolean signedForCurrentHost(String url) {
+        String publicEndpoint = config.getPublicEndpoint();
+        if (publicEndpoint == null || publicEndpoint.isBlank()) {
+            return true;   
+        }
+        String base = publicEndpoint.endsWith("/")
+                ? publicEndpoint.substring(0, publicEndpoint.length() - 1)
+                : publicEndpoint;
+        return url.startsWith(base + "/");
     }
 }

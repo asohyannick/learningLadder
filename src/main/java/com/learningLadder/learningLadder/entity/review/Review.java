@@ -1,6 +1,7 @@
 package com.learningLadder.learningLadder.entity.review;
 
 import com.learningLadder.learningLadder.entity.course.Course;
+import com.learningLadder.learningLadder.entity.storedFile.StoredFile;
 import com.learningLadder.learningLadder.entity.user.User;
 import com.learningLadder.learningLadder.enums.reviewStatus.ReviewStatus;
 import jakarta.persistence.*;
@@ -54,6 +55,10 @@ public class Review {
     @Max(5)
     @Column(name = "rating", nullable = false)
     private int rating;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "profile_picture_id")
+    private StoredFile profilePicture;
 
     @Column(name = "title", length = 150)
     private String title;

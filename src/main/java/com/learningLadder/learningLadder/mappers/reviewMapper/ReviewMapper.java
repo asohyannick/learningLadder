@@ -30,6 +30,7 @@ public interface ReviewMapper {
     @Mapping(target = "idempotencyKey", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "profilePic", ignore = true)
     Review toEntity(CreateReviewRequestDto dto);
 
     @Mapping(target = "id", ignore = true)
@@ -47,6 +48,7 @@ public interface ReviewMapper {
     @Mapping(target = "idempotencyKey", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "profilePic", ignore = true)
     void updateEntity(UpdateReviewRequestDto dto, @MappingTarget Review entity);
 
     @Mapping(source = "course.id", target = "courseId")
@@ -54,6 +56,6 @@ public interface ReviewMapper {
     @Mapping(source = "student.id", target = "studentId")
     @Mapping(source = "student.firstName", target = "studentFirstName")
     @Mapping(source = "student.lastName", target = "studentLastName")
-    @Mapping(source = "profilePic", target = "studentProfilePic", ignore = true)
+    @Mapping(source = "profilePic", target = "studentProfilePic")
     ReviewResponseDto toResponse(Review entity);
 }

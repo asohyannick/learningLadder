@@ -35,4 +35,9 @@ public record ReviewResponseDto(
         Instant createdAt,
         Instant updatedAt
 ) {
+        public ReviewResponseDto withStudentProfilePic(String url) {
+                return new ReviewResponseDto(id, courseId, courseName, studentId, studentFirstName, studentLastName,
+                        url, rating, title, comment, status, verifiedEnrollment, helpfulCount,
+                        tutorReply, repliedBy, repliedAt, createdAt, updatedAt);
+        }
 }

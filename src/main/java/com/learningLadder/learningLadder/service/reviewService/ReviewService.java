@@ -139,16 +139,31 @@ public class ReviewService {
     }
 
     @CacheEvict(cacheNames = CacheNames.REVIEWS, allEntries = true)
-    public ReviewResponseDto updateReview(UUID id, UpdateReviewRequestDto data) {
+    public ReviewResponseDto updateReview(UUID id, UpdateReviewRequestDto data, MultipartFile profilePicture) {
         User actor = currentUser();
         Review review = findOrThrow(id);
         requireOwnerOrModerator(review, actor);
 
-        reviewMapper.updateEntity(data, review);
-        review.setTitle(blankToNull(review.getTitle()));
-        review.setComment(blankToNull(review.getComment()));
+        if (data != null) {
+            reviewMapper.updateEntity(data, review);
+            review.setTitle(blankToNull(review.getTitle()));
+            review.setComment(blankToNull(review.getComment()));
+        }
 
-        return reviewMapper.toResponse(reviewRepository.saveAndFlush(review));
+        StoredFile uploaded = null;
+        if (profilePicture != null && !profilePicture.isEmpty()) {
+            uploaded = minioFileStorageService.upload(profilePicture, FileCategory.IMAGE, actor.getId());
+            review.setProfilePic(uploaded.getPresignedUrl());
+        }
+
+        try {
+            return reviewMapper.toResponse(reviewRepository.saveAndFlush(review));
+        } catch (RuntimeException ex) {
+            if (uploaded != null) {
+                removeUploadQuietly(uploaded.getId());
+            }
+            throw ex;
+        }
     }
 
     @CacheEvict(cacheNames = CacheNames.REVIEWS, allEntries = true)
@@ -157,15 +172,23 @@ public class ReviewService {
         Review review = findOrThrow(id);
         requireOwnerOrModerator(review, actor);
 
+        StoredFile picture = review.getProfilePicture();
         reviewRepository.delete(review);
+        if (picture != null) {
+            removeUploadQuietly(picture.getId());
+        }
     }
 
     @CacheEvict(cacheNames = CacheNames.REVIEWS, allEntries = true)
-    public ReviewResponseDto approveReview(UUID id) {
+    public ReviewResponseDto approveReview(UUID id, String reason) {
         User moderator = currentUser();
         requireModerator(moderator);
 
         Review review = findOrThrow(id);
+        String cleanReason = blankToNull(reason == null ? null : reason.trim());
+        if (cleanReason != null && cleanReason.length() > MAX_REASON_LENGTH) {
+            throw new BadRequestException("Reason must not exceed " + MAX_REASON_LENGTH + " characters");
+        }
         if (review.getStatus() == ReviewStatus.APPROVED) {
             throw new BadRequestException("Review is already approved");
         }
@@ -412,5 +435,13 @@ public class ReviewService {
             user = userRepository.findByEmail(name);
         }
         return user.orElseThrow(() -> new BadRequestException("User account not found"));
+    }
+
+    private ReviewResponseDto toResponse(Review review) {
+        ReviewResponseDto dto = reviewMapper.toResponse(review);
+        if (review.getProfilePicture() == null) {
+            return dto;
+        }
+        return dto.withStudentProfilePic(minioFileStorageService.resolveUrl(review.getProfilePicture()));
     }
 }

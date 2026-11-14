@@ -24,6 +24,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -40,6 +41,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import static com.learningLadder.learningLadder.enums.userRole.UserRole.*;
+import static com.learningLadder.learningLadder.enums.userRole.UserRole.ACADEMIC_DIRECTOR;
+import static com.learningLadder.learningLadder.enums.userRole.UserRole.STUDENT;
+
 @RestController
 @RequestMapping("/api/${app.api.version}/review")
 @RequiredArgsConstructor
@@ -49,6 +54,7 @@ import java.util.UUID;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private static final String REVIEW_APPROVAL_ROLES = "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN', 'ACADEMIC_DIRECTOR')";
 
     @Operation(
             summary = "Add a course review",
@@ -194,13 +200,16 @@ public class ReviewController {
             @ApiResponse(responseCode = "403", description = "Not the review's author or a moderator",
                     content = @Content(schema = @Schema(implementation = APIErrorResponse.class)))
     })
-    @PatchMapping("/{id}")
+    @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<APISuccessResponse<ReviewResponseDto>> updateReview(
             @Parameter(description = "Review ID", required = true) @PathVariable UUID id,
-            @Valid @RequestBody UpdateReviewRequestDto data,
+            @Parameter(description = "Fields to change, as JSON")
+            @Valid @RequestPart(value = "data", required = false) UpdateReviewRequestDto data,
+            @Parameter(description = "Optional new profile picture (image file)")
+            @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture,
             HttpServletRequest request) {
         return ResponseEntity.ok(APISuccessResponse.ok("Review updated successfully",
-                reviewService.updateReview(id, data), request.getRequestURI()));
+                reviewService.updateReview(id, data, profilePicture), request.getRequestURI()));
     }
 
     @Operation(
@@ -233,11 +242,13 @@ public class ReviewController {
                     content = @Content(schema = @Schema(implementation = APIErrorResponse.class)))
     })
     @PatchMapping("/{id}/approve")
+    @PreAuthorize(REVIEW_APPROVAL_ROLES)
     public ResponseEntity<APISuccessResponse<ReviewResponseDto>> approveReview(
             @Parameter(description = "Review ID", required = true) @PathVariable UUID id,
+            @RequestBody(required = false) String reason,
             HttpServletRequest request) {
         return ResponseEntity.ok(APISuccessResponse.ok("Review approved successfully",
-                reviewService.approveReview(id), request.getRequestURI()));
+                reviewService.approveReview(id, reason), request.getRequestURI()));
     }
 
     @Operation(
@@ -253,10 +264,11 @@ public class ReviewController {
                     content = @Content(schema = @Schema(implementation = APIErrorResponse.class)))
     })
     @PatchMapping("/{id}/disapprove")
+    @PreAuthorize(REVIEW_APPROVAL_ROLES)
     public ResponseEntity<APISuccessResponse<ReviewResponseDto>> disapproveReview(
             @Parameter(description = "Review ID", required = true) @PathVariable UUID id,
             @Parameter(description = "Optional reason shown to the student", example = "Contains inappropriate language")
-            @RequestParam(required = false) String reason,
+            @RequestBody(required = false) String reason,
             HttpServletRequest request) {
         return ResponseEntity.ok(APISuccessResponse.ok("Review disapproved successfully",
                 reviewService.disapproveReview(id, reason), request.getRequestURI()));

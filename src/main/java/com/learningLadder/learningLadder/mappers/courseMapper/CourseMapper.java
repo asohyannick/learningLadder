@@ -3,11 +3,13 @@ package com.learningLadder.learningLadder.mappers.courseMapper;
 import com.learningLadder.learningLadder.dto.courseDto.*;
 import com.learningLadder.learningLadder.entity.course.Course;
 import com.learningLadder.learningLadder.entity.course.CourseMaterial;
+import com.learningLadder.learningLadder.utils.fileUrlResolver.FileUrlResolver;
 import org.mapstruct.*;
 
 @Mapper(
         componentModel = "spring",
-        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
+        uses = FileUrlResolver.class
 )
 public interface CourseMapper {
 
@@ -40,19 +42,22 @@ public interface CourseMapper {
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(UpdateCourseRequestDto dto, @MappingTarget Course course);
 
-    @Mapping(target = "thumbnailUrl", source = "thumbnail.presignedUrl")
-    @Mapping(target = "promoVideoUrl", source = "promoVideo.presignedUrl")
-    @Mapping(target = "syllabusUrl", source = "syllabus.presignedUrl")
+    // ---------- Responses: every file link goes through FileUrlResolver (fresh, correct host) ----------
+
+    @Mapping(target = "thumbnailUrl", source = "thumbnail", qualifiedByName = "fileUrl")
+    @Mapping(target = "promoVideoUrl", source = "promoVideo", qualifiedByName = "fileUrl")
+    @Mapping(target = "syllabusUrl", source = "syllabus", qualifiedByName = "fileUrl")
     CourseResponseDto toResponse(Course course);
 
-    @Mapping(target = "thumbnailUrl", source = "thumbnail.presignedUrl")
+    @Mapping(target = "thumbnailUrl", source = "thumbnail", qualifiedByName = "fileUrl")
+    @Mapping(target = "promoVideoUrl", source = "promoVideo", qualifiedByName = "fileUrl")
     CourseSummaryResponseDto toSummary(Course course);
 
     @Mapping(target = "fileId", source = "file.id")
     @Mapping(target = "fileName", source = "file.originalFileName")
     @Mapping(target = "contentType", source = "file.contentType")
     @Mapping(target = "sizeBytes", source = "file.sizeBytes")
-    @Mapping(target = "url", source = "file.presignedUrl")
+    @Mapping(target = "url", source = "file", qualifiedByName = "fileUrl")
     CourseMaterialResponseDto toMaterialResponse(CourseMaterial material);
 
     @Named("trim")

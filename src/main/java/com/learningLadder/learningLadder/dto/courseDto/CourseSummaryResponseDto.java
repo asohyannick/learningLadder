@@ -25,5 +25,6 @@ public record CourseSummaryResponseDto(
         CourseStatus status,
         boolean published,
         String thumbnailUrl,
+        String promoVideoUrl,
         Instant createdAt
 ) implements Serializable { }

@@ -190,6 +190,7 @@ public class SecurityConfig {
     private static final String[] TIMETABLE_WRITE_ROLES = roles(
             SUPER_ADMIN, ADMIN, IT_ADMIN,
             ACADEMIC_DIRECTOR,
+            STUDENT,
             DEAN, DEPUTY_DEAN,
             HEAD_OF_DEPARTMENT, DEPUTY_HEAD_OF_DEPARTMENT,
             PROFESSOR, LECTURER);
@@ -218,10 +219,13 @@ public class SecurityConfig {
     };
 
     private static final String[] REVIEW_MODERATOR_ROLES = roles(
-            SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+            SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR, STUDENT);
+
+    private static final String[] REVIEW_APPROVAL_ROLES = roles(
+            SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR, STUDENT);
 
     private static final String[] REVIEW_MANAGE_ROLES = roles(
-            STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+             SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
 
     private static final String JOB_LISTING_BASE = "/api/*/job-listing";
 
@@ -465,7 +469,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, REVIEW_READ_ROUTES).authenticated()
                         .requestMatchers(HttpMethod.POST, REVIEW_CREATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, REVIEW_MODERATION_ROUTES).hasAnyRole(REVIEW_MODERATOR_ROLES)
-                        .requestMatchers(HttpMethod.PATCH, REVIEW_UPDATE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, REVIEW_UPDATE_ROUTES).hasAnyRole(REVIEW_APPROVAL_ROLES)
                         .requestMatchers(HttpMethod.DELETE, REVIEW_DELETE_ROUTES).hasAnyRole(REVIEW_MANAGE_ROLES)
 
                         // Job listings
