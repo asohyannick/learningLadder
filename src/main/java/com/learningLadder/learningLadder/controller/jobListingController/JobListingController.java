@@ -9,7 +9,6 @@ import com.learningLadder.learningLadder.dto.jobListingDto.JobListingPdfDto;
 import com.learningLadder.learningLadder.dto.jobListingDto.JobListingResponseDto;
 import com.learningLadder.learningLadder.dto.jobListingDto.JobListingSummaryResponseDto;
 import com.learningLadder.learningLadder.dto.jobListingDto.UpdateJobListingRequestDto;
-import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
 import com.learningLadder.learningLadder.service.jobListingService.JobListingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,7 +29,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,7 +39,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -132,11 +129,9 @@ public class JobListingController {
             @Valid @RequestPart("data") CreateJobListingRequestDto data,
             @Parameter(description = "Optional job photo (an allowed image type, within the image size limit)")
             @RequestPart(value = "photo", required = false) MultipartFile photo,
-            @Parameter(hidden = true) Authentication authentication,
             HttpServletRequest request) {
 
-        JobListingResponseDto created =
-                jobListingService.createJobListing(data, photo, currentUserId(authentication));
+        JobListingResponseDto created = jobListingService.createJobListing(data, photo);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 "Job listing created successfully as a draft.",
@@ -461,14 +456,5 @@ public class JobListingController {
                         ContentDisposition.attachment().filename(pdf.fileName()).build().toString())
                 .contentLength(pdf.content().length)
                 .body(pdf.content());
-    }
-
-
-    private UUID currentUserId(Authentication authentication) {
-        try {
-            return UUID.fromString(authentication.getName());
-        } catch (BadRequestException ex) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Could not identify the signed-in user");
-        }
     }
 }

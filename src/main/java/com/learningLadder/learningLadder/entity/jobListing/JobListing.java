@@ -33,7 +33,7 @@ public class JobListing {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "jobPhotoUrl", length = 1024)
+    @Column(name = "job_photo_url", length = 1024)
     private String jobPhotoUrl;
 
     @Column(name = "slug", nullable = false, unique = true)

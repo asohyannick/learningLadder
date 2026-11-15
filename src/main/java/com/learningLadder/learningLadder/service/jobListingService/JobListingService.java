@@ -11,6 +11,7 @@ import com.learningLadder.learningLadder.exception.badRequestException.BadReques
 import com.learningLadder.learningLadder.mappers.jobListingMapper.JobListingMapper;
 import com.learningLadder.learningLadder.repository.jobListingRepository.JobListingRepository;
 import com.learningLadder.learningLadder.repository.jobListingRepository.JobListingSpecifications;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import com.learningLadder.learningLadder.utils.multipart.BufferedMultipartFile;
 import com.learningLadder.learningLadder.utils.pdf.PdfTextWriter;
 import lombok.RequiredArgsConstructor;
@@ -48,24 +49,25 @@ public class JobListingService {
     private final JobListingMapper jobListingMapper;
     private final MinioFileStorageService storage;
     private final JobListingPhotoUploader photoUploader;
+    private final CurrentUserService currentUserService;
 
     @Transactional
     @CacheEvict(cacheNames = CacheNames.JOB_LISTINGS, allEntries = true)
     public JobListingResponseDto createJobListing(CreateJobListingRequestDto request,
-                                                  MultipartFile photo,
-                                                  UUID userId) {
+                                                  MultipartFile photo) {
+        UUID currentUserId = currentUserService.currentUserId();
         BufferedMultipartFile buffered = bufferPhoto(photo);
 
         JobListing job = jobListingMapper.toEntity(request);
         job.setSlug(uniqueSlug(request.title()));
         job.setReferenceCode(nextReferenceCode());
         job.setStatus(JobStatus.DRAFT);
-        job.setPostedBy(userId);
+        job.setPostedBy(currentUserId);
         validateMerged(job);
 
         JobListing saved = jobListingRepository.save(job);
         if (buffered != null) {
-            photoUploader.uploadInBackground(saved.getId(), buffered, userId);
+            photoUploader.uploadInBackground(saved.getId(), buffered, currentUserId);
         }
         return jobListingMapper.toResponse(saved);
     }
@@ -89,6 +91,7 @@ public class JobListingService {
     @Transactional
     @CacheEvict(cacheNames = CacheNames.JOB_LISTINGS, allEntries = true)
     public JobListingResponseDto updateJobListing(UUID id, UpdateJobListingRequestDto request, MultipartFile photo) {
+        UUID currentUserId = currentUserService.currentUserId();
         BufferedMultipartFile buffered = bufferPhoto(photo);
 
         JobListing job = getJob(id);
@@ -96,7 +99,7 @@ public class JobListingService {
         validateMerged(job);
 
         if (buffered != null) {
-            photoUploader.uploadInBackground(job.getId(), buffered, job.getPostedBy());
+            photoUploader.uploadInBackground(job.getId(), buffered, currentUserId);
         }
         return jobListingMapper.toResponse(job);
     }
@@ -253,4 +256,5 @@ public class JobListingService {
         if (b == null || b.isBlank()) return a;
         return a + ", " + b;
     }
+
 }
