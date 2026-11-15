@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -20,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,6 +65,7 @@ public class UserController {
                                     }
                                     """)))
     })
+    @Async
     public ResponseEntity<APISuccessResponse<UserResponseDto>> register(
             @Valid @RequestBody RegisterRequestDto registerRequestDto,
             HttpServletRequest request) {
@@ -109,6 +110,7 @@ public class UserController {
                                     }
                                     """)))
     })
+    @Async
     public ResponseEntity<APISuccessResponse<UserResponseDto>> verifyOtpCode(
             @Valid @RequestBody VerifyOtpCodeDto verifyOtpCodeDto,
             HttpServletRequest request) {
@@ -338,6 +340,7 @@ public class UserController {
                                             """)
                             }))
     })
+    @Async
     public ResponseEntity<APISuccessResponse<UserResponseDto>> resendOtpCode(
             @Valid @RequestBody ResendOtpCodeDto resendOtpCodeDto,
             HttpServletRequest request) {

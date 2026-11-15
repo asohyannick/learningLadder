@@ -1,8 +1,8 @@
 package com.learningLadder.learningLadder.entity.booking;
 
 import com.learningLadder.learningLadder.entity.course.Course;
-import com.learningLadder.learningLadder.entity.studentProfile.StudentProfile;
 import com.learningLadder.learningLadder.entity.tutorProfile.TutorProfile;
+import com.learningLadder.learningLadder.entity.user.User;
 import com.learningLadder.learningLadder.enums.bookingStatus.BookingStatus;
 import com.learningLadder.learningLadder.enums.paymentStatus.PaymentStatus;
 import com.learningLadder.learningLadder.enums.sessionMode.SessionMode;
@@ -54,7 +54,7 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "student_id", nullable = false, updatable = false)
-    private StudentProfile student;
+    private User student;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tutor_id", nullable = false)

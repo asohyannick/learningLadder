@@ -1,17 +1,14 @@
 package com.learningLadder.learningLadder.service.bookingService;
 
 import com.learningLadder.learningLadder.config.cachingConfig.CacheNames.CacheNames;
-import com.learningLadder.learningLadder.dto.bookingDto.BookingPageResponseDto;
-import com.learningLadder.learningLadder.dto.bookingDto.BookingResponseDto;
-import com.learningLadder.learningLadder.dto.bookingDto.CreateBookingRequestDto;
-import com.learningLadder.learningLadder.dto.bookingDto.PagedQueryBookingRequestDto;
-import com.learningLadder.learningLadder.dto.bookingDto.UpdateBookingRequestDto;
+import com.learningLadder.learningLadder.dto.bookingDto.*;
 import com.learningLadder.learningLadder.entity.booking.Booking;
 import com.learningLadder.learningLadder.entity.course.Course;
-import com.learningLadder.learningLadder.entity.studentProfile.StudentProfile;
 import com.learningLadder.learningLadder.entity.tutorProfile.TutorProfile;
+import com.learningLadder.learningLadder.entity.user.User;
 import com.learningLadder.learningLadder.enums.bookingStatus.BookingStatus;
 import com.learningLadder.learningLadder.enums.sessionMode.SessionMode;
+import com.learningLadder.learningLadder.enums.userRole.UserRole;
 import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
 import com.learningLadder.learningLadder.exception.conflictRequestException.ConflictRequestException;
 import com.learningLadder.learningLadder.exception.notFoundRequestException.NotFoundRequestException;
@@ -19,8 +16,8 @@ import com.learningLadder.learningLadder.mappers.bookingMapper.BookingMapper;
 import com.learningLadder.learningLadder.repository.bookingRepository.BookingRepository;
 import com.learningLadder.learningLadder.repository.bookingRepository.BookingSpecification;
 import com.learningLadder.learningLadder.repository.courseRepository.CourseRepository;
-import com.learningLadder.learningLadder.repository.studentProfileRepository.StudentProfileRepository;
 import com.learningLadder.learningLadder.repository.tutorProfileRepository.TutorProfileRepository;
+import com.learningLadder.learningLadder.repository.userRepository.UserRepository;
 import com.learningLadder.learningLadder.utils.pdf.BookingPdfGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,12 +25,14 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -57,20 +56,20 @@ public class BookingService {
     private static final int MAX_EXPORT_ROWS = 2_000;
 
     private final BookingRepository bookingRepository;
-    private final StudentProfileRepository studentProfileRepository;
     private final TutorProfileRepository tutorProfileRepository;
     private final CourseRepository courseRepository;
     private final BookingMapper bookingMapper;
     private final BookingPdfGenerator bookingPdfGenerator;
+    private final UserRepository userRepository;
 
     @CacheEvict(cacheNames = {CacheNames.BOOKINGS, CacheNames.BOOKING_SEARCH,
             CacheNames.BOOKING_COUNT, CacheNames.BOOKING_PDF}, allEntries = true)
-    public BookingResponseDto addBooking(CreateBookingRequestDto dto, String idempotencyKey, UUID currentUserId) {
+    public BookingResponseDto addBooking(CreateBookingRequestDto dto, String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 100) {
             throw new BadRequestException("The Idempotency-Key header is required (max 100 characters)");
         }
 
-        StudentProfile student = findStudentProfileOfUser(currentUserId);
+        User student = currentStudent();
 
         Optional<Booking> previous = bookingRepository.findByIdempotencyKey(idempotencyKey);
         if (previous.isPresent()) {
@@ -92,20 +91,21 @@ public class BookingService {
         if (dto.courseId() != null) {
             booking.setCourse(findCourse(dto.courseId()));
         }
-        booking.setIdempotencyKey(idempotencyKey);
+        booking.setIdempotencyKey(idempotencyKey.trim());
         applyPricing(booking, tutor);
 
         Booking saved;
         try {
             saved = bookingRepository.saveAndFlush(booking);
-        } catch (ConflictRequestException ex) {
-            throw new ConflictRequestException("This time slot is no longer available. Please choose another time.");
+        } catch (BadRequestException ex) {
+            throw translateIntegrityError(ex);
         }
 
         log.info("Booking {} ({}) created by student {} with tutor {}",
                 saved.getId(), saved.getBookingReference(), student.getId(), tutor.getId());
         return bookingMapper.toResponse(saved);
     }
+
 
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = CacheNames.BOOKINGS, key = "#page + ':' + #size")
@@ -128,9 +128,9 @@ public class BookingService {
             evict = @CacheEvict(cacheNames = {CacheNames.BOOKINGS, CacheNames.BOOKING_SEARCH,
                     CacheNames.BOOKING_PDF}, allEntries = true)
     )
-    public BookingResponseDto updateBooking(UUID id, UpdateBookingRequestDto dto, UUID currentUserId) {
+    public BookingResponseDto updateBooking(UUID id, UpdateBookingRequestDto dto) {
         Booking booking = findBooking(id);
-        StudentProfile student = findStudentProfileOfUser(currentUserId);
+        User student = currentStudent();
 
         if (!booking.getStudent().getId().equals(student.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only update your own bookings");
@@ -167,8 +167,8 @@ public class BookingService {
         Booking saved;
         try {
             saved = bookingRepository.saveAndFlush(booking);
-        } catch (DataIntegrityViolationException ex) {
-            throw new ConflictRequestException("This time slot is no longer available. Please choose another time.");
+        } catch (BadRequestException ex) {
+            throw translateIntegrityError(ex);
         }
 
         log.info("Booking {} updated by student {}{}", id, student.getId(), dto.isReschedule() ? " (rescheduled)" : "");
@@ -213,6 +213,71 @@ public class BookingService {
         return bookingPdfGenerator.generate(rows, result.getTotalElements(), describeFilters(query));
     }
 
+    /** The booking's tutor confirms it. Online and hybrid sessions need a meeting link. */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.BOOKING, key = "#id"),
+            @CacheEvict(cacheNames = {CacheNames.BOOKINGS, CacheNames.BOOKING_SEARCH,
+                    CacheNames.BOOKING_PDF}, allEntries = true)
+    })
+    public BookingResponseDto approveBooking(UUID id, ApproveBookingRequestDto dto) {
+        Booking booking = findBooking(id);
+        User tutorUser = currentUser();
+        requireAssignedTutor(booking, tutorUser);
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new ConflictRequestException("Only pending bookings can be approved. This booking is "
+                    + booking.getStatus());
+        }
+        if (!booking.getScheduledStart().isAfter(Instant.now())) {
+            throw new ConflictRequestException("This session has already started and can no longer be approved");
+        }
+
+        if (dto != null) {
+            if (dto.meetingLink() != null) booking.setMeetingLink(dto.meetingLink());
+            if (dto.meetingId() != null) booking.setMeetingId(dto.meetingId());
+            if (dto.meetingPasscode() != null) booking.setMeetingPasscode(dto.meetingPasscode());
+            if (dto.tutorNotes() != null) booking.setTutorNotes(dto.tutorNotes());
+        }
+        if (requiresMeetingLink(booking.getSessionMode()) && isBlank(booking.getMeetingLink())) {
+            throw new BadRequestException("Add a meeting link to approve an " + booking.getSessionMode()
+                    + " session");
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setConfirmedAt(Instant.now());
+        booking.setRejectedAt(null);
+        booking.setRejectionReason(null);
+
+        Booking saved = saveBooking(booking);
+        log.info("Booking {} ({}) approved by tutor user {}", id, saved.getBookingReference(), tutorUser.getId());
+        return bookingMapper.toResponse(saved);
+    }
+
+    /** The booking's tutor declines it, with a reason for the student. */
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.BOOKING, key = "#id"),
+            @CacheEvict(cacheNames = {CacheNames.BOOKINGS, CacheNames.BOOKING_SEARCH,
+                    CacheNames.BOOKING_PDF}, allEntries = true)
+    })
+    public BookingResponseDto disapproveBooking(UUID id, DisApproveBookingRequestDto dto) {
+        Booking booking = findBooking(id);
+        User tutorUser = currentUser();
+        requireAssignedTutor(booking, tutorUser);
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new ConflictRequestException("Only pending bookings can be declined. This booking is "
+                    + booking.getStatus());
+        }
+
+        booking.setStatus(BookingStatus.REJECTED);
+        booking.setRejectedAt(Instant.now());
+        booking.setRejectionReason(dto.reason());
+
+        Booking saved = saveBooking(booking);
+        log.info("Booking {} ({}) declined by tutor user {}", id, saved.getBookingReference(), tutorUser.getId());
+        return bookingMapper.toResponse(saved);
+    }
+
     private void ensureSlotIsFree(UUID tutorId, UUID studentId, Instant start, Instant end, UUID excludeBookingId) {
         if (bookingRepository.existsTutorOverlap(tutorId, start, end, ACTIVE_STATUSES, excludeBookingId)) {
             throw new ConflictRequestException("The tutor already has a booking at this time. Please choose another time.");
@@ -244,12 +309,6 @@ public class BookingService {
     private Booking findBooking(UUID id) {
         return bookingRepository.findById(id)
                 .orElseThrow(() -> new NotFoundRequestException("Booking not found with id " + id));
-    }
-
-    private StudentProfile findStudentProfileOfUser(UUID userId) {
-        return studentProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Only students with a student profile can book sessions"));
     }
 
     private TutorProfile findTutor(UUID id) {
@@ -291,4 +350,73 @@ public class BookingService {
         return value == null || value.isBlank();
     }
 
+    private User currentStudent() {
+        User user = currentUser();
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only students can book sessions");
+        }
+        return user;
+    }
+
+    private User currentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
+        }
+        return userRepository.findByEmailIgnoreCase(authentication.getName())
+                .filter(u -> !u.isAccountDeleted())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Your account was not found. Please log in again."));
+    }
+
+    /**
+     * Turns database rule violations into clear API errors:
+     * - 23P01 exclusion violation: the tutor got another booking at the same time (race)  -> 409
+     * - 23505 unique violation:    same Idempotency-Key or booking reference                -> 409
+     * - anything else (e.g. a missing foreign key) is a server problem: rethrow so it is logged as one
+     */
+    private RuntimeException translateIntegrityError(BadRequestException ex) {
+        String sqlState = null;
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof java.sql.SQLException sql) {
+                sqlState = sql.getSQLState();
+                break;
+            }
+        }
+        if ("23P01".equals(sqlState)) {
+            return new ConflictRequestException("This time slot is no longer available. Please choose another time.");
+        }
+        if ("23505".equals(sqlState)) {
+            return new ConflictRequestException("This booking was already submitted. Please refresh and try again.");
+        }
+        log.error("Unexpected database constraint violation while saving a booking", ex);
+        return ex;
+    }
+
+    /** Only the tutor the booking was made with may approve or decline it. */
+    private void requireAssignedTutor(Booking booking, User user) {
+        TutorProfile tutor = booking.getTutor();
+        boolean isAssignedTutor = tutor != null && tutor.getUser() != null
+                && tutor.getUser().getId().equals(user.getId());
+        if (!isAssignedTutor) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only the tutor of this booking can approve or decline it");
+        }
+    }
+
+    private boolean requiresMeetingLink(SessionMode mode) {
+        return mode != null && (mode.name().equals("ONLINE") || mode.name().equals("HYBRID"));
+    }
+
+    /** Saves and turns database and concurrency errors into clear 409 responses. */
+    private Booking saveBooking(Booking booking) {
+        try {
+            return bookingRepository.saveAndFlush(booking);
+        } catch (BadRequestException ex) {
+            throw translateIntegrityError(ex);
+        } catch (ConflictRequestException ex) {
+            throw new ConflictRequestException("This booking was changed at the same time. Please reload and try again.");
+        }
+    }
 }

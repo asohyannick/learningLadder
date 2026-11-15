@@ -54,7 +54,7 @@ public class TutorProfileController {
 
     private static final String STAFF =
             "hasAnyRole('SUPER_ADMIN','ADMIN','IT_ADMIN','REGISTRAR','DEPUTY_REGISTRAR',"
-                    + "'ADMISSIONS_OFFICER','STUDENT_REGISTRAR')";
+                    + "'ADMISSIONS_OFFICER','STUDENT_REGISTRAR', 'STUDENT')";
 
     private static final String TUTORS = "hasAnyRole('LECTURER','PROFESSOR','ASSISTANT_LECTURER','SUPER_ADMIN')";
 

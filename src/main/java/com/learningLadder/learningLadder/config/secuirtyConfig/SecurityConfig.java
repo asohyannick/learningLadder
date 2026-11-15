@@ -154,7 +154,8 @@ public class SecurityConfig {
             REGISTRAR,
             DEPUTY_REGISTRAR,
             ADMISSIONS_OFFICER,
-            STUDENT_REGISTRAR
+            STUDENT_REGISTRAR,
+            STUDENT
     );
 
     private static final String[] TUTOR_ROLES = roles(
@@ -274,7 +275,15 @@ public class SecurityConfig {
     private static final String[] BOOKING_UPDATE_ROUTES = { BOOKING_BASE + "/*" };
     private static final String[] BOOKING_DELETE_ROUTES = { BOOKING_BASE + "/*" };
 
-    private static final String[] BOOKING_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR);
+    private static final String[] BOOKING_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN, ACADEMIC_DIRECTOR, STUDENT);
+
+    private static final String[] BOOKING_TUTOR_ROLES = roles(LECTURER, PROFESSOR, ASSISTANT_LECTURER);
+
+    private static final String[] BOOKING_TUTOR_ACTION_ROUTES = {
+            BOOKING_BASE + "/*/approve",
+            BOOKING_BASE + "/*/disapprove"
+    };
+
 
     private static final String LIBRARY_BASE = "/api/*/library";
 
@@ -288,7 +297,6 @@ public class SecurityConfig {
     private static final String[] LIBRARY_BOOK_UPDATE_ROUTES = { LIBRARY_BASE + "/books/*" };
     private static final String[] LIBRARY_BOOK_DELETE_ROUTES = { LIBRARY_BASE + "/books/*" };
 
-    // Must be matched BEFORE "/loans/*", which would otherwise also match /search, /count and /download
     private static final String[] LIBRARY_LOAN_STAFF_READ_ROUTES = {
             LIBRARY_BASE + "/loans",
             LIBRARY_BASE + "/loans/search",
@@ -487,10 +495,12 @@ public class SecurityConfig {
 
                         // Bookings
                         .requestMatchers(HttpMethod.GET, BOOKING_STAFF_READ_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
-                        .requestMatchers(HttpMethod.GET, BOOKING_SINGLE_READ_ROUTES).authenticated()
+                        .requestMatchers(HttpMethod.GET, BOOKING_SINGLE_READ_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
                         .requestMatchers(HttpMethod.POST, BOOKING_CREATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, BOOKING_UPDATE_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.DELETE, BOOKING_DELETE_ROUTES).hasAnyRole(BOOKING_STAFF_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, BOOKING_TUTOR_ACTION_ROUTES).hasAnyRole(BOOKING_TUTOR_ROLES)
+                        .requestMatchers(HttpMethod.PATCH, BOOKING_UPDATE_ROUTES).hasRole(STUDENT.name())
 
                         // Library: books
                         .requestMatchers(HttpMethod.GET, LIBRARY_BOOK_READ_ROUTES).authenticated()

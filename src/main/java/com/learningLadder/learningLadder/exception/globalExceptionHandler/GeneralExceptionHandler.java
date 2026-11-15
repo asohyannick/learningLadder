@@ -17,6 +17,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
 import java.time.Instant;
 @RestControllerAdvice
 @Slf4j
@@ -47,7 +49,7 @@ public class GeneralExceptionHandler {
 
     @ExceptionHandler( NotFoundRequestException.class)
     public ResponseEntity<GlobalExceptionResponseHandler> handleNotFoundException(
-            NoHandlerFoundException ex,
+           NotFoundRequestException ex,
             HttpServletRequest request
     ) {
         return buildResponse(
@@ -164,5 +166,21 @@ public class GeneralExceptionHandler {
         return ResponseEntity.status(status).body(APIErrorResponse.of(status, "FILE_STORAGE_ERROR",
                 "The file could not be stored right now. Please try again in a moment.",
                 request.getRequestURI()));
+    }
+
+    /** A URL that doesn't exist (no controller method for this path). */
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public ResponseEntity<GlobalExceptionResponseHandler> handleUnknownEndpoint(
+            Exception ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                "No endpoint " + request.getMethod() + " " + request.getRequestURI(),
+                "Endpoint not found",
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                "ENDPOINT_NOT_FOUND",
+                HttpStatus.NOT_FOUND,
+                request
+        );
     }
 }
