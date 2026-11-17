@@ -46,7 +46,7 @@ public class JobApplication {
     @JoinColumn(name = "job_listing_id", nullable = false)
     private JobListing jobListing;
 
-    @Column(name = "profilePic", nullable = false,  length = 1024)
+    @Column(name = "profile_pic", nullable = false,  length = 1024)
     private String profilePic;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -61,6 +61,9 @@ public class JobApplication {
 
     @Column(name = "email", nullable = false, length = 255)
     private String email;
+
+    @Column(name = "upload_cv", nullable = false, length = 1024)
+    private String uploadCV;
 
     @Column(name = "phone_number", length = 30)
     private String phoneNumber;

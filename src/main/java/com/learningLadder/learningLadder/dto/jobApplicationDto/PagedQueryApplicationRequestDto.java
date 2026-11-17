@@ -15,8 +15,6 @@ public record PagedQueryApplicationRequestDto(
 
         UUID jobListingId,
 
-        UUID applicantId,
-
         ApplicationStatus status,
 
         @Size(max = 100, message = "Search keyword must not exceed 100 characters")

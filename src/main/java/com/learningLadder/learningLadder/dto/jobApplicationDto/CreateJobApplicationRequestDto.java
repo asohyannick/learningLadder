@@ -14,10 +14,6 @@ public record CreateJobApplicationRequestDto(
         @NotNull(message = "Job listing id is required")
         UUID jobListingId,
 
-        @NotBlank(message = "Profile picture is required")
-        @Size(max = 1024, message = "Profile picture must not exceed 1024 characters")
-        String profilePic,
-
         @NotBlank(message = "First name is required")
         @Size(max = 100, message = "First name must not exceed 100 characters")
         String firstName,
@@ -90,14 +86,6 @@ public record CreateJobApplicationRequestDto(
         @Size(max = 10_000, message = "Cover letter must not exceed 10,000 characters")
         String coverLetter,
 
-        @NotNull(message = "Resume is required")
-        UUID resumeId,
-
-        UUID coverLetterFileId,
-
-        @Size(max = 10, message = "You can attach at most 10 supporting documents")
-        List<@NotNull UUID> supportingDocumentIds,
-
         @AssertTrue(message = "You must give consent to submit an application")
         boolean consentGiven
 ) {
@@ -105,13 +93,11 @@ public record CreateJobApplicationRequestDto(
     public CreateJobApplicationRequestDto {
         firstName = trim(firstName);
         lastName = trim(lastName);
-        profilePic = trim(profilePic);
         email = email == null ? null : email.trim().toLowerCase();
         expectedSalaryCurrency = expectedSalaryCurrency == null
                 ? "USD"
                 : expectedSalaryCurrency.trim().toUpperCase();
         expectedSalaryPeriod = expectedSalaryPeriod == null ? SalaryPeriod.MONTHLY : expectedSalaryPeriod;
-        supportingDocumentIds = supportingDocumentIds == null ? List.of() : List.copyOf(supportingDocumentIds);
     }
 
     private static String trim(String value) {

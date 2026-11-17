@@ -24,9 +24,6 @@ public final class JobApplicationSpecification {
             if (query.jobListingId() != null) {
                 predicates.add(cb.equal(root.get("jobListing").get("id"), query.jobListingId()));
             }
-            if (query.applicantId() != null) {
-                predicates.add(cb.equal(root.get("applicant").get("id"), query.applicantId()));
-            }
             if (query.status() != null) {
                 predicates.add(cb.equal(root.get("status"), query.status()));
             }

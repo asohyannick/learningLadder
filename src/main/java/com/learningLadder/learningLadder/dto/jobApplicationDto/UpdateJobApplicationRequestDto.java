@@ -7,7 +7,6 @@ import org.hibernate.validator.constraints.URL;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 public record UpdateJobApplicationRequestDto(
 
@@ -83,20 +82,15 @@ public record UpdateJobApplicationRequestDto(
         @Size(max = 10_000, message = "Cover letter must not exceed 10,000 characters")
         String coverLetter,
 
-        UUID resumeId,
-
-        UUID coverLetterFileId,
-
         @Size(max = 10, message = "You can attach at most 10 supporting documents")
-        List<@NotNull UUID> supportingDocumentIds
+        List<@NotNull String> supportingDocuments
 ) {
-
     public UpdateJobApplicationRequestDto {
         firstName = firstName == null ? null : firstName.trim();
         lastName = lastName == null ? null : lastName.trim();
         email = email == null ? null : email.trim().toLowerCase();
         profilePic = profilePic == null ? null : profilePic.trim();
         expectedSalaryCurrency = expectedSalaryCurrency == null ? null : expectedSalaryCurrency.trim().toUpperCase();
-        supportingDocumentIds = supportingDocumentIds == null ? null : List.copyOf(supportingDocumentIds);
+        supportingDocuments = supportingDocuments == null ? null : List.copyOf(supportingDocuments);
     }
 }

@@ -5,14 +5,9 @@ import com.learningLadder.learningLadder.dto.jobApplicationDto.JobApplicationRes
 import com.learningLadder.learningLadder.dto.jobApplicationDto.UpdateJobApplicationRequestDto;
 import com.learningLadder.learningLadder.entity.jobApplication.JobApplication;
 import com.learningLadder.learningLadder.entity.storedFile.StoredFile;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @Mapper(
         componentModel = "spring",
@@ -24,7 +19,6 @@ public interface JobApplicationMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "jobListing", ignore = true)
     @Mapping(target = "applicant", ignore = true)
-    @Mapping(target = "resume", ignore = true)
     @Mapping(target = "coverLetterFile", ignore = true)
     @Mapping(target = "supportingDocuments", ignore = true)
     @Mapping(target = "status", ignore = true)
@@ -37,21 +31,15 @@ public interface JobApplicationMapper {
     @Mapping(target = "withdrawnAt", ignore = true)
     @Mapping(target = "idempotencyKey", ignore = true)
     @Mapping(target = "profilePic", ignore = true)
+    @Mapping(target = "resume", ignore = true)
+    @Mapping(target = "uploadCV", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     JobApplication toEntity(CreateJobApplicationRequestDto dto);
 
-    /* =========================================================
-     * Update request DTO -> existing Entity (PATCH)
-     * ---------------------------------------------------------
-     * Null fields in the DTO leave the entity untouched thanks to
-     * NullValuePropertyMappingStrategy.IGNORE.
-     * consentGiven cannot be changed after submission.
-     * ========================================================= */
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "jobListing", ignore = true)
     @Mapping(target = "applicant", ignore = true)
-    @Mapping(target = "resume", ignore = true)
     @Mapping(target = "coverLetterFile", ignore = true)
     @Mapping(target = "supportingDocuments", ignore = true)
     @Mapping(target = "status", ignore = true)
@@ -63,23 +51,24 @@ public interface JobApplicationMapper {
     @Mapping(target = "interviewScheduledAt", ignore = true)
     @Mapping(target = "withdrawnAt", ignore = true)
     @Mapping(target = "consentGiven", ignore = true)
+    @Mapping(target = "resume", ignore = true)
     @Mapping(target = "idempotencyKey", ignore = true)
+    @Mapping(target = "uploadCV", ignore = true)
     @Mapping(target = "profilePic", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(UpdateJobApplicationRequestDto dto, @MappingTarget JobApplication entity);
 
-
     @Mapping(target = "jobListingId", source = "jobListing.id")
     @Mapping(target = "applicantId", source = "applicant.id")
-    @Mapping(target = "resumeId", source = "resume.id")
-    @Mapping(target = "coverLetterFileId", source = "coverLetterFile.id")
-    @Mapping(target = "supportingDocumentIds", source = "supportingDocuments")
+    @Mapping(target = "supportingDocuments", source = "supportingDocuments", qualifiedByName = "fileIds")
+    @Mapping(target = "supportingDocumentUrls", ignore = true)
     JobApplicationResponseDto toResponse(JobApplication entity);
 
     List<JobApplicationResponseDto> toResponseList(List<JobApplication> entities);
 
-    default UUID storedFileToId(StoredFile file) {
-        return file == null ? null : file.getId();
+    @Named("fileIds")
+    default List<String> fileIds(List<StoredFile> files) {
+        return files == null ? List.of() : files.stream().map(f -> f.getId().toString()).toList();
     }
 }

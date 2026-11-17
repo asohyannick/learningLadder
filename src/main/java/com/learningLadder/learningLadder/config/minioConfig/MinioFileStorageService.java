@@ -136,6 +136,25 @@ public class MinioFileStorageService {
         removeObjectQuietly(file.getObjectKey());
     }
 
+    /**
+     * Returns a temporary GET link for an object stored by key only (no StoredFile row).
+     * Signing is done locally, so this is fast enough to call on every response.
+     */
+    public String presignedUrl(String objectKey, Duration validity) {
+        if (!StringUtils.hasText(objectKey)) {
+            return null;
+        }
+        try {
+            return publicClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .method(Http.Method.GET)
+                    .bucket(config.getBucketName())
+                    .object(objectKey)
+                    .expiry((int) validity.toSeconds())
+                    .build());
+        } catch (Exception ex) {
+            throw new FileStorageException("Failed to generate presigned URL for " + objectKey, ex);
+        }
+    }
 
     /**
      * Uploads raw bytes to MinIO under the given object key.

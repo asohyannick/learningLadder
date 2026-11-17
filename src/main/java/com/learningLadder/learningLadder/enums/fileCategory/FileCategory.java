@@ -23,7 +23,15 @@ public enum FileCategory {
                     "text/plain")),
 
     VIDEO("videos", 500L * 1024 * 1024,
-            Set.of("video/mp4", "video/webm", "video/quicktime"));
+            Set.of("video/mp4", "video/webm", "video/quicktime")),
+
+    SUPPORTING_DOCUMENT("supporting-documents", 10L * 1024 * 1024,
+            Set.of("application/pdf",
+                    "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "image/jpeg",
+                    "image/png",
+                    "image/webp"));
 
     private final String folder;
     private final long maxBytes;

@@ -44,9 +44,9 @@ public record JobApplicationResponseDto(
         Integer noticePeriodDays,
 
         String coverLetter,
-        UUID resumeId,
-        UUID coverLetterFileId,
-        List<UUID> supportingDocumentIds,
+        String uploadCV,
+        List<String> supportingDocuments,
+        List<String> supportingDocumentUrls,
 
         ApplicationStatus status,
         Instant submittedAt,
@@ -63,10 +63,24 @@ public record JobApplicationResponseDto(
 ) {
 
     public JobApplicationResponseDto {
-        supportingDocumentIds = supportingDocumentIds == null ? List.of() : List.copyOf(supportingDocumentIds);
+        supportingDocuments = supportingDocuments == null ? List.of() : List.copyOf(supportingDocuments);
+        supportingDocumentUrls = supportingDocumentUrls == null ? List.of() : List.copyOf(supportingDocumentUrls);
     }
 
     public String fullName() {
         return (firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName);
+    }
+
+    public JobApplicationResponseDto withLinks(String profilePicUrl, String cvUrl, List<String> documentUrls) {
+        return new JobApplicationResponseDto(
+                id, profilePicUrl, jobListingId, applicantId,
+                firstName, lastName, email, phoneNumber, dateOfBirth, nationality,
+                city, stateRegion, country,
+                currentJobTitle, currentEmployer, yearsOfExperience, highestEducation, linkedinUrl, portfolioUrl,
+                expectedSalary, expectedSalaryCurrency, expectedSalaryPeriod, availableFrom, noticePeriodDays,
+                coverLetter, cvUrl, supportingDocuments, documentUrls,
+                status, submittedAt, reviewedBy, reviewedAt, reviewNote, rejectionReason,
+                interviewScheduledAt, withdrawnAt, consentGiven,
+                createdAt, updatedAt);
     }
 }
