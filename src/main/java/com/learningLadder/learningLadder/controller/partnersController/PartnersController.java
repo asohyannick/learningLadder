@@ -32,7 +32,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -105,10 +104,9 @@ public class PartnersController {
     public ResponseEntity<APISuccessResponse<PartnersResponseDto>> addPartnership(
             @Valid @RequestPart("data") CreatePartnersRequestDto data,
             @RequestPart(value = "logo", required = false) MultipartFile logo,
-            @RequestPart(value = "banner", required = false) MultipartFile banner,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @RequestPart(value = "banner", required = false) MultipartFile banner) {
 
-        PartnersResponseDto partner = partnersService.addPartnership(data, logo, banner, currentUserId);
+        PartnersResponseDto partner = partnersService.addPartnership(data, logo, banner);
 
         String role = partner.sponsorshipTier() != null
                 ? partner.sponsorshipTier() + " sponsor"

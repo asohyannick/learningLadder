@@ -4,6 +4,7 @@ import com.learningLadder.learningLadder.config.apiResponse.APIErrorResponse;
 import com.learningLadder.learningLadder.config.apiResponse.APISuccessResponse;
 import com.learningLadder.learningLadder.dto.libraryLoanDto.*;
 import com.learningLadder.learningLadder.service.libraryService.LibraryService;
+import com.learningLadder.learningLadder.utils.libraryLinkResolver.LibraryLinkResolver;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -27,7 +28,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -68,8 +68,8 @@ import java.util.UUID;
 )
 public class LibraryController {
 
-    private static final String STAFF = "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN')";
-    private static final Set<String> STAFF_AUTHORITIES = Set.of("ROLE_SUPER_ADMIN", "ROLE_ADMIN", "ROLE_IT_ADMIN");
+    private static final String STAFF = "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN', 'LIBRARIAN', 'STUDENT')";
+    private static final Set<String> STAFF_AUTHORITIES = Set.of("ROLE_SUPER_ADMIN", "ROLE_ADMIN", "ROLE_IT_ADMIN", "ROLE_LIBRARIAN", "STUDENT");
 
     private static final DateTimeFormatter DATE_TIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC);
@@ -77,6 +77,7 @@ public class LibraryController {
             DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC);
 
     private final LibraryService libraryService;
+    private final LibraryLinkResolver linkResolver;
 
     @PostMapping(value = "/books", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
@@ -112,7 +113,7 @@ public class LibraryController {
             @Valid @RequestPart("data") CreateLibraryBookRequestDto data,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage) {
 
-        LibraryBookResponseDto book = libraryService.addBook(data, coverImage);
+        LibraryBookResponseDto book = linkResolver.withLinks(libraryService.addBook(data, coverImage));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 "\"" + book.title() + "\" added to the catalog with " + book.totalCopies() + " cop"
@@ -135,7 +136,7 @@ public class LibraryController {
             @Parameter(description = "Page size (1-100)", example = "20")
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
 
-        LibraryBookPageResponseDto result = libraryService.fetchAllBooks(page, size);
+        LibraryBookPageResponseDto result = linkResolver.withLinks(libraryService.fetchAllBooks(page, size));
         String message = result.totalElements() == 0
                 ? "The catalog is empty"
                 : "Books fetched successfully";
@@ -161,7 +162,7 @@ public class LibraryController {
     public ResponseEntity<APISuccessResponse<LibraryBookPageResponseDto>> searchBooks(
             @Valid @ParameterObject @ModelAttribute PagedQueryLibraryBookRequestDto query) {
 
-        LibraryBookPageResponseDto result = libraryService.searchBooks(query);
+        LibraryBookPageResponseDto result = linkResolver.withLinks(libraryService.searchBooks(query));
         String message = result.totalElements() == 0
                 ? "No books match your search"
                 : "Search completed: " + result.totalElements() + " book(s) found";
@@ -195,7 +196,7 @@ public class LibraryController {
     public ResponseEntity<APISuccessResponse<LibraryBookResponseDto>> fetchBook(
             @Parameter(description = "Book id") @PathVariable UUID id) {
 
-        LibraryBookResponseDto book = libraryService.fetchBook(id);
+        LibraryBookResponseDto book = linkResolver.withLinks(libraryService.fetchBook(id));
         String message = book.availableToBorrow()
                 ? "Book fetched successfully: " + book.availableCopies() + " cop"
                   + (book.availableCopies() == 1 ? "y" : "ies") + " available"
@@ -239,7 +240,7 @@ public class LibraryController {
             @Valid @RequestPart("data") UpdateLibraryBookRequestDto data,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage) {
 
-        LibraryBookResponseDto book = libraryService.updateBook(id, data, coverImage);
+        LibraryBookResponseDto book = linkResolver.withLinks(libraryService.updateBook(id, data, coverImage));
         String message = Boolean.FALSE.equals(data.active())
                 ? "\"" + book.title() + "\" withdrawn from the catalog"
                 : "\"" + book.title() + "\" updated successfully";
@@ -271,9 +272,9 @@ public class LibraryController {
         return ResponseEntity.ok(APISuccessResponse.ok("Book deleted from the catalog successfully", currentPath()));
     }
 
+    @PreAuthorize(STAFF)
     @PostMapping(value = "/loans", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasRole('STUDENT')")
     @Operation(
             summary = "Borrow (reserve) a book",
             description = """
@@ -300,10 +301,9 @@ public class LibraryController {
             @Parameter(in = ParameterIn.HEADER, required = true,
                     description = "Unique key per request (e.g. a UUID generated by the client)",
                     example = "c2a7e0f4-1b3d-4e5f-8a9b-0c1d2e3f4a5b")
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
-        LibraryLoanResponseDto loan = libraryService.borrowBook(request, idempotencyKey, currentUserId);
+        LibraryLoanResponseDto loan = libraryService.borrowBook(request, idempotencyKey);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 "\"" + loan.bookTitle() + "\" reserved (" + loan.loanReference() + "). "
@@ -331,10 +331,9 @@ public class LibraryController {
     })
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> issueBook(
             @Parameter(description = "Loan id") @PathVariable UUID id,
-            @Valid @RequestBody IssueBookRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody IssueBookRequestDto request) {
 
-        LibraryLoanResponseDto loan = libraryService.issueBook(id, request, currentUserId);
+        LibraryLoanResponseDto loan = libraryService.issueBook(id, request);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "\"" + loan.bookTitle() + "\" issued successfully. Due back on " + format(loan.dueAt(), DATE) + ".",
@@ -440,7 +439,7 @@ public class LibraryController {
     }
 
     @GetMapping(value = "/loans/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize(STAFF + " or @libraryLoanAccess.isBorrower(#id, authentication.principal.id)")
+    @PreAuthorize(STAFF + " or @libraryLoanAccess.isBorrower(#id, @currentUserService.currentUserId())")
     @Operation(summary = "Fetch a borrowed book (loan)",
             description = "Staff can view any loan; students only their own. Cached.")
     @ApiResponses({
@@ -483,10 +482,9 @@ public class LibraryController {
     })
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> updateBorrowedBook(
             @Parameter(description = "Loan id") @PathVariable UUID id,
-            @Valid @RequestBody IssueBookRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody IssueBookRequestDto request) {
 
-        LibraryLoanResponseDto loan = libraryService.updateBorrowedBook(id, request, currentUserId);
+        LibraryLoanResponseDto loan = libraryService.updateBorrowedBook(id, request);
         String message = request.dueAt() != null
                 ? "Loan updated successfully. New due date: " + format(loan.dueAt(), DATE) + "."
                 : "Loan updated successfully";
@@ -512,10 +510,9 @@ public class LibraryController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> renewBorrowedBook(
-            @Parameter(description = "Loan id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Parameter(description = "Loan id") @PathVariable UUID id) {
 
-        LibraryLoanResponseDto loan = libraryService.renewBorrowedBook(id, currentUserId);
+        LibraryLoanResponseDto loan = libraryService.renewBorrowedBook(id);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "\"" + loan.bookTitle() + "\" renewed successfully. New due date: " + format(loan.dueAt(), DATE)
@@ -543,10 +540,9 @@ public class LibraryController {
     })
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> returnBorrowedBook(
             @Parameter(description = "Loan id") @PathVariable UUID id,
-            @Valid @RequestBody ReturnBookToLibraryRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody ReturnBookToLibraryRequestDto request) {
 
-        LibraryLoanResponseDto loan = libraryService.returnBorrowedBook(id, request, currentUserId);
+        LibraryLoanResponseDto loan = libraryService.returnBorrowedBook(id, request);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Return of \"" + loan.bookTitle() + "\" recorded. A librarian will confirm once the book has been checked.",
@@ -576,10 +572,9 @@ public class LibraryController {
     })
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> confirmReturnBorrowedBook(
             @Parameter(description = "Loan id") @PathVariable UUID id,
-            @Valid @RequestBody ConfirmBookReturnRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody ConfirmBookReturnRequestDto request) {
 
-        LibraryLoanResponseDto loan = libraryService.confirmReturnBorrowedBook(id, request, currentUserId);
+        LibraryLoanResponseDto loan = libraryService.confirmReturnBorrowedBook(id, request);
 
         String message = "Return of \"" + loan.bookTitle() + "\" confirmed. "
                 + (hasFee(loan.lateFee())
@@ -608,10 +603,9 @@ public class LibraryController {
     })
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> cancelReservation(
             @Parameter(description = "Loan id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        LibraryLoanResponseDto loan = libraryService.cancelReservation(id, currentUserId, isStaff(authentication));
+        LibraryLoanResponseDto loan = libraryService.cancelReservation(id, isStaff(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Reservation of \"" + loan.bookTitle() + "\" cancelled successfully", loan, currentPath()));
@@ -641,10 +635,9 @@ public class LibraryController {
     public ResponseEntity<APISuccessResponse<LibraryLoanResponseDto>> reportBookLost(
             @Parameter(description = "Loan id") @PathVariable UUID id,
             @Valid @RequestBody ReportBookLostRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        LibraryLoanResponseDto loan = libraryService.reportBookLost(id, request, currentUserId, isStaff(authentication));
+        LibraryLoanResponseDto loan = libraryService.reportBookLost(id, request, isStaff(authentication));
 
         String message = "\"" + loan.bookTitle() + "\" reported lost. "
                 + (hasFee(loan.lateFee())

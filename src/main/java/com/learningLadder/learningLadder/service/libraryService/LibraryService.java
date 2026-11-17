@@ -8,7 +8,9 @@ import com.learningLadder.learningLadder.entity.course.Course;
 import com.learningLadder.learningLadder.entity.library.Library;
 import com.learningLadder.learningLadder.entity.library.LibraryLoan;
 import com.learningLadder.learningLadder.entity.studentProfile.StudentProfile;
+import com.learningLadder.learningLadder.entity.user.User;
 import com.learningLadder.learningLadder.enums.loanStatus.LoanStatus;
+import com.learningLadder.learningLadder.enums.userRole.UserRole;
 import com.learningLadder.learningLadder.exception.badRequestException.BadRequestException;
 import com.learningLadder.learningLadder.exception.conflictRequestException.ConflictRequestException;
 import com.learningLadder.learningLadder.exception.fileStorageException.FileStorageException;
@@ -20,6 +22,7 @@ import com.learningLadder.learningLadder.repository.libraryRepository.LibraryLoa
 import com.learningLadder.learningLadder.repository.libraryRepository.LibraryRepository;
 import com.learningLadder.learningLadder.repository.libraryRepository.LibrarySpecification;
 import com.learningLadder.learningLadder.repository.studentProfileRepository.StudentProfileRepository;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import com.learningLadder.learningLadder.utils.pdf.LibraryLoanPdfGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,13 +30,11 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,7 +80,6 @@ public class LibraryService {
             CacheNames.LIBRARY_BOOK_COUNT, CacheNames.LIBRARY_LOAN, CacheNames.LIBRARY_LOANS,
             CacheNames.LIBRARY_LOAN_SEARCH, CacheNames.LIBRARY_LOAN_COUNT, CacheNames.LIBRARY_LOAN_PDF);
 
-
     private static final List<LoanStatus> ACTIVE_LOAN_STATUSES = List.of(
             LoanStatus.RESERVED, LoanStatus.BORROWED, LoanStatus.OVERDUE, LoanStatus.RETURN_REQUESTED);
     private static final List<LoanStatus> OUT_WITH_STUDENT = List.of(
@@ -88,8 +88,7 @@ public class LibraryService {
     private static final Duration RESERVATION_HOLD = Duration.ofHours(48);
     private static final int NOTES_MAX_LENGTH = 1000;
 
-    // ---------------------------------------------------------------- limits
-    private static final long MAX_COVER_BYTES = 5L * 1024 * 1024; // 5 MB
+    private static final long MAX_COVER_BYTES = 5L * 1024 * 1024;
     private static final Map<String, String> ALLOWED_IMAGE_TYPES = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
@@ -101,16 +100,21 @@ public class LibraryService {
 
     private final LibraryRepository libraryRepository;
     private final LibraryLoanRepository libraryLoanRepository;
-    private final StudentProfileRepository studentProfileRepository;
     private final CourseRepository courseRepository;
     private final LibraryMapper libraryMapper;
     private final LibraryLoanPdfGenerator libraryLoanPdfGenerator;
     private final MinioFileStorageService minioFileStorageService;
     private final FireAndForgetEmailAsync fireAndForgetEmailAsync;
     private final CacheManager cacheManager;
+    private final CurrentUserService currentUserService;
+    private final StudentProfileRepository studentProfileRepository;
 
     private record CoverUpload(String objectKey, byte[] content, String contentType) {
     }
+
+    // =====================================================================
+    // Catalog (books)
+    // =====================================================================
 
     @EvictLibraryCaches
     public LibraryBookResponseDto addBook(CreateLibraryBookRequestDto dto, MultipartFile coverImage) {
@@ -129,7 +133,7 @@ public class LibraryService {
         Library saved;
         try {
             saved = libraryRepository.saveAndFlush(book);
-        } catch (DataIntegrityViolationException ex) {
+        } catch (BadRequestException ex) {
             throw new ConflictRequestException("A book with this ISBN already exists in the catalog");
         }
 
@@ -188,9 +192,9 @@ public class LibraryService {
         Library saved;
         try {
             saved = libraryRepository.saveAndFlush(book);
-        } catch (DataIntegrityViolationException ex) {
-            throw new ConflictRequestException("Another book already uses this ISBN");
         } catch (ConflictRequestException ex) {
+            throw new ConflictRequestException("Another book already uses this ISBN");
+        } catch (BadRequestException ex) {
             throw new ConflictRequestException("This book was changed at the same time (e.g. a copy was just borrowed). Please try again.");
         }
 
@@ -229,12 +233,16 @@ public class LibraryService {
         return libraryRepository.count();
     }
 
+    // =====================================================================
+    // Loans
+    // =====================================================================
+
     @EvictLibraryCaches
-    public LibraryLoanResponseDto borrowBook(BorrowBookRequestDto dto, String idempotencyKey, UUID currentUserId) {
+    public LibraryLoanResponseDto borrowBook(BorrowBookRequestDto dto, String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 100) {
             throw new BadRequestException("The Idempotency-Key header is required (max 100 characters)");
         }
-        StudentProfile student = findStudentProfileOfUser(currentUserId);
+        StudentProfile student = currentStudentProfile();
 
         Optional<LibraryLoan> previous = libraryLoanRepository.findByIdempotencyKey(idempotencyKey);
         if (previous.isPresent()) {
@@ -278,7 +286,8 @@ public class LibraryService {
         LibraryLoan saved;
         try {
             saved = libraryLoanRepository.saveAndFlush(loan);
-        } catch (ConflictRequestException | BadRequestException ex) {
+        } catch (BadRequestException | ConflictRequestException ex) {
+            // duplicate idempotency key / active loan, or the last copy was taken at the same moment
             throw new ConflictRequestException("This book was just reserved by someone else, or you already have it. Please try again.");
         }
 
@@ -288,7 +297,8 @@ public class LibraryService {
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto issueBook(UUID loanId, IssueBookRequestDto dto, UUID librarianId) {
+    public LibraryLoanResponseDto issueBook(UUID loanId, IssueBookRequestDto dto) {
+        UUID librarianId = currentUserService.currentUserId();
         LibraryLoan loan = findLoan(loanId);
 
         if (loan.getStatus() != LoanStatus.RESERVED) {
@@ -327,7 +337,8 @@ public class LibraryService {
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto updateBorrowedBook(UUID loanId, IssueBookRequestDto dto, UUID librarianId) {
+    public LibraryLoanResponseDto updateBorrowedBook(UUID loanId, IssueBookRequestDto dto) {
+        UUID librarianId = currentUserService.currentUserId();
         LibraryLoan loan = findLoan(loanId);
 
         if (loan.getStatus() != LoanStatus.BORROWED && loan.getStatus() != LoanStatus.OVERDUE) {
@@ -351,9 +362,9 @@ public class LibraryService {
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto renewBorrowedBook(UUID loanId, UUID currentUserId) {
+    public LibraryLoanResponseDto renewBorrowedBook(UUID loanId) {
         LibraryLoan loan = findLoan(loanId);
-        ensureOwner(loan, findStudentProfileOfUser(currentUserId));
+        ensureOwner(loan, currentStudentProfile());
 
         if (loan.getStatus() == LoanStatus.OVERDUE || loan.isOverdue()) {
             throw new ConflictRequestException("Overdue books cannot be renewed. Please return the book to the library.");
@@ -377,9 +388,9 @@ public class LibraryService {
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto returnBorrowedBook(UUID loanId, ReturnBookToLibraryRequestDto dto, UUID currentUserId) {
+    public LibraryLoanResponseDto returnBorrowedBook(UUID loanId, ReturnBookToLibraryRequestDto dto) {
         LibraryLoan loan = findLoan(loanId);
-        ensureOwner(loan, findStudentProfileOfUser(currentUserId));
+        ensureOwner(loan, currentStudentProfile());
 
         if (loan.getStatus() != LoanStatus.BORROWED && loan.getStatus() != LoanStatus.OVERDUE) {
             throw new ConflictRequestException("Only borrowed or overdue books can be returned. This loan is " + loan.getStatus());
@@ -394,7 +405,8 @@ public class LibraryService {
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto confirmReturnBorrowedBook(UUID loanId, ConfirmBookReturnRequestDto dto, UUID librarianId) {
+    public LibraryLoanResponseDto confirmReturnBorrowedBook(UUID loanId, ConfirmBookReturnRequestDto dto) {
+        UUID librarianId = currentUserService.currentUserId();
         LibraryLoan loan = findLoan(loanId);
 
         if (!OUT_WITH_STUDENT.contains(loan.getStatus())) {
@@ -431,10 +443,10 @@ public class LibraryService {
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto cancelReservation(UUID loanId, UUID currentUserId, boolean actingAsStaff) {
+    public LibraryLoanResponseDto cancelReservation(UUID loanId, boolean actingAsStaff) {
         LibraryLoan loan = findLoan(loanId);
         if (!actingAsStaff) {
-            ensureOwner(loan, findStudentProfileOfUser(currentUserId));
+            ensureOwner(loan, currentStudentProfile());
         }
         if (loan.getStatus() != LoanStatus.RESERVED) {
             throw new ConflictRequestException("Only reservations can be cancelled. This loan is " + loan.getStatus());
@@ -444,16 +456,15 @@ public class LibraryService {
         appendNote(loan, "Reservation cancelled" + (actingAsStaff ? " by library staff" : " by the student"));
         putCopyBackOnShelf(loan.getBook());
 
-        log.info("Reservation {} cancelled", loanId);
+        log.info("Reservation {} cancelled by user {}", loanId, currentUserService.currentUserId());
         return saveLoan(loan);
     }
 
     @EvictLibraryCaches
-    public LibraryLoanResponseDto reportBookLost(UUID loanId, ReportBookLostRequestDto dto,
-                                                 UUID currentUserId, boolean actingAsStaff) {
+    public LibraryLoanResponseDto reportBookLost(UUID loanId, ReportBookLostRequestDto dto, boolean actingAsStaff) {
         LibraryLoan loan = findLoan(loanId);
         if (!actingAsStaff) {
-            ensureOwner(loan, findStudentProfileOfUser(currentUserId));
+            ensureOwner(loan, currentStudentProfile());
         }
         if (!OUT_WITH_STUDENT.contains(loan.getStatus())) {
             throw new ConflictRequestException("Only books that are out can be reported lost. This loan is " + loan.getStatus());
@@ -472,7 +483,8 @@ public class LibraryService {
         Library book = loan.getBook();
         book.setTotalCopies(Math.max(book.getTotalCopies() - 1, book.getAvailableCopies()));
 
-        log.warn("Loan {} reported lost, book {} now has {} copies", loanId, book.getId(), book.getTotalCopies());
+        log.warn("Loan {} reported lost by user {}, book {} now has {} copies",
+                loanId, currentUserService.currentUserId(), book.getId(), book.getTotalCopies());
         return saveLoan(loan);
     }
 
@@ -513,6 +525,10 @@ public class LibraryService {
         return libraryLoanRepository.countByStatusIn(OUT_WITH_STUDENT);
     }
 
+    // =====================================================================
+    // Scheduled jobs (no logged-in user here, so they never call CurrentUserService)
+    // =====================================================================
+
     /** Every hour: BORROWED loans past their due date become OVERDUE. */
     @Scheduled(cron = "0 0 * * * *")
     public void markOverdueLoans() {
@@ -538,6 +554,25 @@ public class LibraryService {
         }
         log.info("Released {} expired library reservation(s)", expired.size());
         evictAllLibraryCaches();
+    }
+
+    // =====================================================================
+    // Helpers
+    // =====================================================================
+
+    /** The logged-in user, who must have the STUDENT role, plus the student profile the loan is linked to. */
+    private StudentProfile currentStudentProfile() {
+        User user = currentUserService.currentUser();
+
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only students can borrow books");
+        }
+
+        return studentProfileRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Your student account has no student profile yet. "
+                                + "Create it with POST /api/v1/student-profile before borrowing books."));
     }
 
     private BigDecimal calculateLateFee(LibraryLoan loan, Instant returnedAt) {
@@ -587,7 +622,7 @@ public class LibraryService {
     private LibraryLoanResponseDto saveLoan(LibraryLoan loan) {
         try {
             return libraryMapper.toLoanResponse(libraryLoanRepository.saveAndFlush(loan));
-        } catch (ObjectOptimisticLockingFailureException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("This loan was changed by someone else at the same time. Please reload and try again.");
         }
     }
@@ -675,12 +710,6 @@ public class LibraryService {
     private Course findCourse(UUID id) {
         return courseRepository.findById(id)
                 .orElseThrow(() -> new NotFoundRequestException("Course not found with id " + id));
-    }
-
-    private StudentProfile findStudentProfileOfUser(UUID userId) {
-        return studentProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Only students with a student profile can borrow books"));
     }
 
     private int safePage(int page) {

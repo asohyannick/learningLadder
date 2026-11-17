@@ -5,6 +5,7 @@ import com.learningLadder.learningLadder.dto.partners.PartnerPublicResponseDto;
 import com.learningLadder.learningLadder.dto.partners.PartnersResponseDto;
 import com.learningLadder.learningLadder.dto.partners.UpdatePartnerRequestDto;
 import com.learningLadder.learningLadder.entity.partners.Partners;
+import com.learningLadder.learningLadder.utils.partnersLinkResolver.PartnerImageUrlResolver;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -17,7 +18,8 @@ import java.util.List;
 @Mapper(
         componentModel = "spring",
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
-        unmappedTargetPolicy = ReportingPolicy.ERROR
+        unmappedTargetPolicy = ReportingPolicy.ERROR,
+        uses = PartnerImageUrlResolver.class
 )
 public interface PartnersMapper {
 
@@ -52,10 +54,14 @@ public interface PartnersMapper {
     }
 
     @Mapping(target = "agreementDocumentId", source = "agreementDocument.id")
+    @Mapping(target = "logo", source = "logo", qualifiedByName = "partnerImageUrl")
+    @Mapping(target = "bannerImage", source = "bannerImage", qualifiedByName = "partnerImageUrl")
     PartnersResponseDto toResponse(Partners entity);
 
     List<PartnersResponseDto> toResponseList(List<Partners> entities);
 
+    @Mapping(target = "logo", source = "logo", qualifiedByName = "partnerImageUrl")
+    @Mapping(target = "bannerImage", source = "bannerImage", qualifiedByName = "partnerImageUrl")
     PartnerPublicResponseDto toPublicResponse(Partners entity);
 
     List<PartnerPublicResponseDto> toPublicResponseList(List<Partners> entities);

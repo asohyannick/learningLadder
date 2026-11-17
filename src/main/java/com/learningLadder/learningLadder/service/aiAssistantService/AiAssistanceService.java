@@ -116,7 +116,6 @@ public class AiAssistanceService {
     // ---------------------------------------------------------------- chat rules
     private static final List<AIMessageRole> CHAT_ROLES = List.of(AIMessageRole.USER, AIMessageRole.ASSISTANT);
     private static final List<AIMessageStatus> IN_PROGRESS = List.of(AIMessageStatus.PENDING, AIMessageStatus.STREAMING);
-    /** A reply untouched for this long is considered abandoned and no longer blocks the conversation. */
     private static final Duration STUCK_REPLY_AFTER = Duration.ofMinutes(2);
     private static final Duration STREAM_TIMEOUT = Duration.ofMinutes(3);
     private static final int STREAM_THREADS = 32;
@@ -124,7 +123,7 @@ public class AiAssistanceService {
     private static final int SUMMARY_MAX_SOURCE_MESSAGES = 60;
 
     // ---------------------------------------------------------------- limits
-    private static final long MAX_LOGO_BYTES = 2L * 1024 * 1024; // 2 MB
+    private static final long MAX_LOGO_BYTES = 2L * 1024 * 1024;
     private static final Map<String, String> ALLOWED_IMAGE_TYPES = Map.of(
             "image/jpeg", "jpg", "image/png", "png", "image/webp", "webp", "image/svg+xml", "svg");
     private static final int MAX_PAGE_SIZE = 100;

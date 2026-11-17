@@ -42,8 +42,12 @@ public record LibraryBookResponseDto(
         Instant updatedAt
 ) implements Serializable {
 
-    public int copiesOnLoan() {
-        return Math.max(totalCopies - availableCopies, 0);
+    public LibraryBookResponseDto withCoverImage(String coverImageUrl) {
+        return new LibraryBookResponseDto(
+                id, title, subtitle, author, isbn, publisher, publicationYear, edition, language,
+                category, description, pageCount, coverImageUrl, courseId, shelfLocation,
+                totalCopies, availableCopies, borrowable, loanPeriodDays, maxRenewals,
+                dailyLateFee, currency, active, createdAt, updatedAt);
     }
 
     public boolean availableToBorrow() {

@@ -320,8 +320,8 @@ public class SecurityConfig {
     };
     private static final String[] LIBRARY_LOAN_DELETE_ROUTES = { LIBRARY_BASE + "/loans/*" };
 
-    private static final String[] LIBRARY_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
-    private static final String[] LIBRARY_STUDENT_OR_STAFF_ROLES = roles(STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN);
+    private static final String[] LIBRARY_STAFF_ROLES = roles(SUPER_ADMIN, ADMIN, IT_ADMIN, STUDENT, LIBRARIAN);
+    private static final String[] LIBRARY_STUDENT_OR_STAFF_ROLES = roles(STUDENT, SUPER_ADMIN, ADMIN, IT_ADMIN, LIBRARIAN);
 
     private static final String AI_ASSIST_BASE = "/api/*/ai-assist";
 
@@ -511,7 +511,7 @@ public class SecurityConfig {
                         // Library: loans
                         .requestMatchers(HttpMethod.GET, LIBRARY_LOAN_STAFF_READ_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
                         .requestMatchers(HttpMethod.GET, LIBRARY_LOAN_SINGLE_READ_ROUTES).authenticated()
-                        .requestMatchers(HttpMethod.POST, LIBRARY_LOAN_BORROW_ROUTES).hasRole(STUDENT.name())
+                        .requestMatchers(HttpMethod.POST, LIBRARY_LOAN_BORROW_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
                         .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_STAFF_ACTION_ROUTES).hasAnyRole(LIBRARY_STAFF_ROLES)
                         .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_STUDENT_ACTION_ROUTES).hasRole(STUDENT.name())
                         .requestMatchers(HttpMethod.PATCH, LIBRARY_LOAN_SHARED_ACTION_ROUTES).hasAnyRole(LIBRARY_STUDENT_OR_STAFF_ROLES)

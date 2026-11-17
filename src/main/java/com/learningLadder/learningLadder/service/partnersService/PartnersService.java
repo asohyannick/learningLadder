@@ -22,6 +22,7 @@ import com.learningLadder.learningLadder.mappers.partnersMapper.PartnersMapper;
 import com.learningLadder.learningLadder.repository.partnersRepository.PartnersRepository;
 import com.learningLadder.learningLadder.repository.partnersRepository.PartnersSpecification;
 import com.learningLadder.learningLadder.repository.storedFileRepository.StoredFileRepository;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import com.learningLadder.learningLadder.utils.image.ImageOptimizer;
 import com.learningLadder.learningLadder.utils.image.ImageOptimizer.PreparedImage;
 import com.learningLadder.learningLadder.utils.pdf.PartnersPdfGenerator;
@@ -31,12 +32,10 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,10 +88,13 @@ public class PartnersService {
     private final ImageOptimizer imageOptimizer;
     private final PartnersPdfGenerator partnersPdfGenerator;
     private final CacheManager cacheManager;
+    private final CurrentUserService currentUserService;
 
     @EvictPartnerCaches
     public PartnersResponseDto addPartnership(CreatePartnersRequestDto dto, MultipartFile logo,
-                                              MultipartFile bannerImage, UUID adminId) {
+                                              MultipartFile bannerImage) {
+        UUID adminId = currentUserService.currentUserId();
+
         if (partnersRepository.existsByNameIgnoreCase(dto.name())) {
             throw new ConflictRequestException("A partner named \"" + dto.name() + "\" already exists");
         }
@@ -162,9 +164,9 @@ public class PartnersService {
         Partners saved;
         try {
             saved = partnersRepository.saveAndFlush(partner);
-        } catch (DataIntegrityViolationException ex) {
-            throw new ConflictRequestException("A partner with this name or slug already exists");
         } catch (ConflictRequestException ex) {
+            throw new ConflictRequestException("A partner with this name or slug already exists");
+        } catch (BadRequestException ex) {
             throw new ConflictRequestException("This partner was changed by someone else. Please reload and try again.");
         }
 
@@ -316,8 +318,8 @@ public class PartnersService {
                 try {
                     minioFileStorageService.deleteFile(previousObjectKey);
                 } catch (Exception ex) {
+                    // New image is already uploaded: don't throw, or the retry would upload it again
                     log.warn("Could not delete old partner image {}: {}", previousObjectKey, ex.getMessage());
-                    throw new BadRequestException("Could not delete old partner image", ex.getCause());
                 }
             }
         });
