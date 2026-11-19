@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.List;
 @Configuration
 @Getter
 @Setter
+@Profile("!test")
 @ConfigurationProperties(prefix = "app.firebase")
 @ConditionalOnProperty(
         prefix = "app.firebase",

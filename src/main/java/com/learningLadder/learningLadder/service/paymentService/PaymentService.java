@@ -38,6 +38,7 @@ import com.learningLadder.learningLadder.service.paymentService.StripeGateway.Re
 import com.learningLadder.learningLadder.service.shoppingCartService.CouponRules;
 import com.learningLadder.learningLadder.service.shoppingCartService.CourseCommerceAdapter;
 import com.learningLadder.learningLadder.service.shoppingCartService.CourseCommerceAdapter.CourseSnapshot;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
@@ -100,10 +101,12 @@ public class PaymentService {
     private final StudentProfileRepository studentProfileRepository;
     private final UserRepository userRepository;
     private final CacheManager cacheManager;
+    private final CurrentUserService currentUserService;
 
     private final SecureRandom random = new SecureRandom();
 
-    public CheckoutResponseDto checkoutCart(CheckoutCartRequestDto dto, String idempotencyKey, UUID userId) {
+    public CheckoutResponseDto checkoutCart(CheckoutCartRequestDto dto, String idempotencyKey) {
+        UUID userId = currentUserService.currentUserId();
         String key = requireIdempotencyKey(idempotencyKey);
 
         Optional<Payment> previous = paymentRepository.findByIdempotencyKey(key);
@@ -167,7 +170,8 @@ public class PaymentService {
     }
 
     public CheckoutResponseDto paySchoolFeeOnline(CreateSchoolFeePaymentRequestDto dto, String idempotencyKey,
-                                                  UUID userId, Collection<String> authorities) {
+                                                  Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         String key = requireIdempotencyKey(idempotencyKey);
 
         Optional<Payment> previous = paymentRepository.findByIdempotencyKey(key);
@@ -201,8 +205,8 @@ public class PaymentService {
         return toCheckoutResponse(saved, intent.clientSecret(), false);
     }
 
-    public PaymentResponseDto recordSchoolFeePayment(CreateSchoolFeePaymentRequestDto dto, String idempotencyKey,
-                                                     UUID staffId) {
+    public PaymentResponseDto recordSchoolFeePayment(CreateSchoolFeePaymentRequestDto dto, String idempotencyKey) {
+        UUID staffId = currentUserService.currentUserId();
         String key = requireIdempotencyKey(idempotencyKey);
         Optional<Payment> previous = paymentRepository.findByIdempotencyKey(key);
         if (previous.isPresent()) {
@@ -237,7 +241,8 @@ public class PaymentService {
         return paymentMapper.toStaffResponse(saved);
     }
 
-    public PaymentResponseDto createSalaryPayment(CreateSalaryPaymentRequestDto dto, String idempotencyKey, UUID staffId) {
+    public PaymentResponseDto createSalaryPayment(CreateSalaryPaymentRequestDto dto, String idempotencyKey) {
+        UUID staffId = currentUserService.currentUserId();
         String key = requireIdempotencyKey(idempotencyKey);
         Optional<Payment> previous = paymentRepository.findByIdempotencyKey(key);
         if (previous.isPresent()) {
@@ -266,7 +271,8 @@ public class PaymentService {
         return paymentMapper.toStaffResponse(saved);
     }
 
-    public PaymentResponseDto approveSalaryPayment(UUID paymentId, UUID approverId) {
+    public PaymentResponseDto approveSalaryPayment(UUID paymentId) {
+        UUID approverId = currentUserService.currentUserId();
         Payment payment = findPayment(paymentId);
         requireType(payment, PaymentType.STAFF_SALARY);
 
@@ -287,7 +293,8 @@ public class PaymentService {
         return paymentMapper.toStaffResponse(save(payment));
     }
 
-    public PaymentResponseDto confirmSalaryPayout(UUID paymentId, ConfirmManualPaymentRequestDto dto, UUID staffId) {
+    public PaymentResponseDto confirmSalaryPayout(UUID paymentId, ConfirmManualPaymentRequestDto dto) {
+        UUID staffId = currentUserService.currentUserId();
         Payment payment = findPayment(paymentId);
         requireType(payment, PaymentType.STAFF_SALARY);
 
@@ -309,7 +316,8 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public PaymentResponseDto fetchPayment(UUID paymentId, UUID userId, Collection<String> authorities) {
+    public PaymentResponseDto fetchPayment(UUID paymentId, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         Payment payment = findPayment(paymentId);
         if (isFinance(authorities)) {
             return paymentMapper.toStaffResponse(payment);
@@ -321,8 +329,8 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public PaymentPageResponseDto fetchMyPayments(PagedQueryPaymentRequestDto query, UUID userId) {
-        return search(query.forUser(userId));
+    public PaymentPageResponseDto fetchMyPayments(PagedQueryPaymentRequestDto query) {
+        return search(query.forUser(currentUserService.currentUserId()));
     }
 
     @Transactional(readOnly = true)
@@ -330,8 +338,8 @@ public class PaymentService {
         return search(query);
     }
 
-    public PaymentResponseDto cancelPayment(UUID paymentId, CancelPaymentRequestDto dto, UUID userId,
-                                            Collection<String> authorities) {
+    public PaymentResponseDto cancelPayment(UUID paymentId, CancelPaymentRequestDto dto, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         Payment payment = findPayment(paymentId);
         boolean finance = isFinance(authorities);
         if (!finance && !isPayer(payment, userId)) {
@@ -351,7 +359,8 @@ public class PaymentService {
         return finance ? paymentMapper.toStaffResponse(save(payment)) : paymentMapper.toUserResponse(save(payment));
     }
 
-    public PaymentResponseDto refundPayment(UUID paymentId, RefundPaymentRequestDto dto, UUID staffId) {
+    public PaymentResponseDto refundPayment(UUID paymentId, RefundPaymentRequestDto dto) {
+        UUID staffId = currentUserService.currentUserId();
         Payment original = findPayment(paymentId);
 
         BigDecimal requested = getBigDecimal(dto, original);
@@ -727,7 +736,7 @@ public class PaymentService {
     private Payment saveNew(Payment payment) {
         try {
             return paymentRepository.saveAndFlush(payment);
-        } catch (BadRequestException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("This payment already exists (duplicate request, cart already paid, "
                     + "or salary already prepared for this period)");
         }
@@ -736,7 +745,7 @@ public class PaymentService {
     private Payment save(Payment payment) {
         try {
             return paymentRepository.saveAndFlush(payment);
-        } catch (BadRequestException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("This payment was updated at the same time. Please reload and try again.");
         }
     }
@@ -754,8 +763,12 @@ public class PaymentService {
     }
 
     private StudentProfile findStudent(UUID id) {
-        return studentProfileRepository.findById(id)
-                .orElseThrow(() -> new NotFoundRequestException("Student not found with id " + id));
+        return studentProfileRepository.findByUserId(id)
+                .or(() -> studentProfileRepository.findById(id))
+                .orElseThrow(() -> userRepository.existsById(id)
+                        ? new NotFoundRequestException("This user has no student profile yet. "
+                                                       + "Create it with POST /api/v1/student-profile before paying school fees.")
+                        : new NotFoundRequestException("Student not found with id " + id));
     }
 
     private void requireType(Payment payment, PaymentType type) {

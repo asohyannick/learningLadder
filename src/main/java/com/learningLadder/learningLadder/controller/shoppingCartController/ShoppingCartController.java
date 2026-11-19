@@ -25,7 +25,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -82,10 +81,9 @@ public class ShoppingCartController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> addProductToCart(
-            @Valid @RequestBody AddToCartRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody AddToCartRequestDto request) {
 
-        ShoppingCartResponseDto cart = shoppingCartService.addProductToCart(request, currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.addProductToCart(request);
 
         String message = Boolean.TRUE.equals(request.saveForLater())
                 ? "Course saved for later in your cart"
@@ -101,10 +99,9 @@ public class ShoppingCartController {
             description = "Returns the cart with all its courses. The coupon is re-checked (expired or revoked "
                     + "coupons are removed) and courses whose price changed are flagged with priceChanged=true.")
     @ApiResponse(responseCode = "200", description = "The cart (empty if none yet)")
-    public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> fetchAllProductsFromCart(
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+    public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> fetchAllProductsFromCart() {
 
-        ShoppingCartResponseDto cart = shoppingCartService.fetchAllProductsFromCart(currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.fetchAllProductsFromCart();
 
         String message;
         if (cart.items().isEmpty()) {
@@ -122,10 +119,9 @@ public class ShoppingCartController {
     @Operation(summary = "Count courses in my cart",
             description = "Courses ready to buy (saved-for-later excluded). Ideal for the cart badge in the header.")
     @ApiResponse(responseCode = "200", description = "Number of courses")
-    public ResponseEntity<APISuccessResponse<Integer>> countTotalNumberOfItemsInCart(
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+    public ResponseEntity<APISuccessResponse<Integer>> countTotalNumberOfItemsInCart() {
 
-        int count = shoppingCartService.countTotalNumberOfItemsInCart(currentUserId);
+        int count = shoppingCartService.countTotalNumberOfItemsInCart();
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 count == 0 ? "Your cart is empty" : "You have " + count + " course(s) in your cart",
@@ -142,10 +138,9 @@ public class ShoppingCartController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<ShoppingCartItemResponseDto>> fetchProductFromCart(
-            @Parameter(description = "Cart item id") @PathVariable UUID itemId,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Parameter(description = "Cart item id") @PathVariable UUID itemId) {
 
-        ShoppingCartItemResponseDto item = shoppingCartService.fetchProductFromCart(itemId, currentUserId);
+        ShoppingCartItemResponseDto item = shoppingCartService.fetchProductFromCart(itemId);
 
         return ResponseEntity.ok(APISuccessResponse.ok("\"" + item.courseTitle() + "\" fetched from your cart",
                 item, currentPath()));
@@ -168,10 +163,9 @@ public class ShoppingCartController {
     })
     public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> updateProductFromCart(
             @Parameter(description = "Cart item id") @PathVariable UUID itemId,
-            @Valid @RequestBody UpdateCartItemRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody UpdateCartItemRequestDto request) {
 
-        ShoppingCartResponseDto cart = shoppingCartService.updateProductFromCart(itemId, request, currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.updateProductFromCart(itemId, request);
 
         String message = request.savedForLater()
                 ? "Course saved for later. " + totalLine(cart)
@@ -189,10 +183,9 @@ public class ShoppingCartController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> deleteProductFromCart(
-            @Parameter(description = "Cart item id") @PathVariable UUID itemId,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Parameter(description = "Cart item id") @PathVariable UUID itemId) {
 
-        ShoppingCartResponseDto cart = shoppingCartService.deleteProductFromCart(itemId, currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.deleteProductFromCart(itemId);
 
         String message = cart.items().isEmpty()
                 ? "Course removed. Your cart is now empty"
@@ -209,10 +202,9 @@ public class ShoppingCartController {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
-    public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> clearCart(
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+    public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> clearCart() {
 
-        ShoppingCartResponseDto cart = shoppingCartService.clearCart(currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.clearCart();
 
         return ResponseEntity.ok(APISuccessResponse.ok("Your cart has been cleared", cart, currentPath()));
     }
@@ -235,10 +227,9 @@ public class ShoppingCartController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> addCouponCodeToCart(
-            @Valid @RequestBody UpdateShoppingCartRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody UpdateShoppingCartRequestDto request) {
 
-        ShoppingCartResponseDto cart = shoppingCartService.addCouponCodeToCart(request, currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.addCouponCodeToCart(request);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Coupon " + cart.couponCode() + " applied: you save " + money(cart.couponDiscount(), cart.currency())
@@ -255,10 +246,9 @@ public class ShoppingCartController {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
-    public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> removeCouponCodeFromCart(
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+    public ResponseEntity<APISuccessResponse<ShoppingCartResponseDto>> removeCouponCodeFromCart() {
 
-        ShoppingCartResponseDto cart = shoppingCartService.removeCouponCodeFromCart(currentUserId);
+        ShoppingCartResponseDto cart = shoppingCartService.removeCouponCodeFromCart();
 
         return ResponseEntity.ok(APISuccessResponse.ok("Coupon removed. " + totalLine(cart), cart, currentPath()));
     }
@@ -269,10 +259,9 @@ public class ShoppingCartController {
             description = "Your current and past carts without their items, e.g. status=CHECKED_OUT for purchase history.")
     @ApiResponse(responseCode = "200", description = "Page of carts")
     public ResponseEntity<APISuccessResponse<ShoppingCartPageResponseDto>> fetchMyCarts(
-            @Valid @ParameterObject @ModelAttribute PagedQueryShoppingCartRequestDto query,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @ParameterObject @ModelAttribute PagedQueryShoppingCartRequestDto query) {
 
-        ShoppingCartPageResponseDto result = shoppingCartService.fetchMyCarts(query, currentUserId);
+        ShoppingCartPageResponseDto result = shoppingCartService.fetchMyCarts(query);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 result.totalElements() == 0 ? "No carts found" : "Carts fetched successfully", result, currentPath()));

@@ -27,7 +27,7 @@ USER app
 ENV TZ=UTC \
     JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError --enable-native-access=ALL-UNNAMED"
 
-EXPOSE 8080
+EXPOSE 8075
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -fsS "http://localhost:${PORT:-8080}/actuator/health" || exit 1

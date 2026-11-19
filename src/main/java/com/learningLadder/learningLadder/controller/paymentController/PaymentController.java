@@ -33,7 +33,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -54,7 +53,7 @@ import java.util.UUID;
 @Validated
 @RequiredArgsConstructor
 @RequestMapping("/api/${app.api.version}/payment")
-@SecurityRequirement(name = "bearerAuth") // must match the scheme name in your swaggerConfig
+@SecurityRequirement(name = "bearerAuth")
 @Tag(
         name = "Payment Management Endpoints",
         description = """
@@ -102,10 +101,9 @@ public class PaymentController {
     public ResponseEntity<APISuccessResponse<CheckoutResponseDto>> checkoutCart(
             @Valid @RequestBody CheckoutCartRequestDto request,
             @Parameter(in = ParameterIn.HEADER, required = true, description = IDEMPOTENCY_DESCRIPTION)
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
-        CheckoutResponseDto checkout = paymentService.checkoutCart(request, idempotencyKey, currentUserId);
+        CheckoutResponseDto checkout = paymentService.checkoutCart(request, idempotencyKey);
 
         String message = checkout.freeOfCharge()
                 ? "Your courses are unlocked. No payment was needed."
@@ -141,11 +139,10 @@ public class PaymentController {
             @Valid @RequestBody CreateSchoolFeePaymentRequestDto request,
             @Parameter(in = ParameterIn.HEADER, required = true, description = IDEMPOTENCY_DESCRIPTION)
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
         CheckoutResponseDto checkout = paymentService.paySchoolFeeOnline(
-                request, idempotencyKey, currentUserId, authorities(authentication));
+                request, idempotencyKey, authorities(authentication));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 checkoutMessage(checkout, "Complete the payment to settle the fee."), checkout, currentPath()));
@@ -173,10 +170,9 @@ public class PaymentController {
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> recordSchoolFeePayment(
             @Valid @RequestBody CreateSchoolFeePaymentRequestDto request,
             @Parameter(in = ParameterIn.HEADER, required = true, description = IDEMPOTENCY_DESCRIPTION)
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
-        PaymentResponseDto payment = paymentService.recordSchoolFeePayment(request, idempotencyKey, currentUserId);
+        PaymentResponseDto payment = paymentService.recordSchoolFeePayment(request, idempotencyKey);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 "Fee payment of " + money(payment.amount(), payment.currency()) + " recorded. Receipt "
@@ -208,10 +204,9 @@ public class PaymentController {
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> createSalaryPayment(
             @Valid @RequestBody CreateSalaryPaymentRequestDto request,
             @Parameter(in = ParameterIn.HEADER, required = true, description = IDEMPOTENCY_DESCRIPTION)
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
-        PaymentResponseDto salary = paymentService.createSalaryPayment(request, idempotencyKey, currentUserId);
+        PaymentResponseDto salary = paymentService.createSalaryPayment(request, idempotencyKey);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 "Salary " + salary.paymentReference() + " prepared (" + money(salary.amount(), salary.currency())
@@ -237,10 +232,9 @@ public class PaymentController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> approveSalaryPayment(
-            @Parameter(description = "Salary payment id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Parameter(description = "Salary payment id") @PathVariable UUID id) {
 
-        PaymentResponseDto salary = paymentService.approveSalaryPayment(id, currentUserId);
+        PaymentResponseDto salary = paymentService.approveSalaryPayment(id);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Salary " + salary.paymentReference() + " approved. Confirm the payout once the transfer is made.",
@@ -266,10 +260,9 @@ public class PaymentController {
     })
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> confirmSalaryPayout(
             @Parameter(description = "Salary payment id") @PathVariable UUID id,
-            @Valid @RequestBody ConfirmManualPaymentRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody ConfirmManualPaymentRequestDto request) {
 
-        PaymentResponseDto salary = paymentService.confirmSalaryPayout(id, request, currentUserId);
+        PaymentResponseDto salary = paymentService.confirmSalaryPayout(id, request);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Salary " + salary.paymentReference() + " of " + money(salary.amount(), salary.currency())
@@ -284,10 +277,9 @@ public class PaymentController {
                     + "Example: paymentType=SCHOOL_FEE&academicYear=2026-2027.")
     @ApiResponse(responseCode = "200", description = "Page of payments")
     public ResponseEntity<APISuccessResponse<PaymentPageResponseDto>> fetchMyPayments(
-            @Valid @ParameterObject @ModelAttribute PagedQueryPaymentRequestDto query,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @ParameterObject @ModelAttribute PagedQueryPaymentRequestDto query) {
 
-        PaymentPageResponseDto result = paymentService.fetchMyPayments(query, currentUserId);
+        PaymentPageResponseDto result = paymentService.fetchMyPayments(query);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 result.totalElements() == 0 ? "No payments found" : result.totalElements() + " payment(s) found",
@@ -335,10 +327,9 @@ public class PaymentController {
     })
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> fetchPayment(
             @Parameter(description = "Payment id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        PaymentResponseDto payment = paymentService.fetchPayment(id, currentUserId, authorities(authentication));
+        PaymentResponseDto payment = paymentService.fetchPayment(id, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Payment " + payment.paymentReference() + " is " + payment.status(), payment, currentPath()));
@@ -366,10 +357,9 @@ public class PaymentController {
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> cancelPayment(
             @Parameter(description = "Payment id") @PathVariable UUID id,
             @Valid @RequestBody CancelPaymentRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        PaymentResponseDto payment = paymentService.cancelPayment(id, request, currentUserId, authorities(authentication));
+        PaymentResponseDto payment = paymentService.cancelPayment(id, request, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Payment " + payment.paymentReference() + " cancelled. No money was taken.", payment, currentPath()));
@@ -397,10 +387,9 @@ public class PaymentController {
     })
     public ResponseEntity<APISuccessResponse<PaymentResponseDto>> refundPayment(
             @Parameter(description = "Id of the payment to refund") @PathVariable UUID id,
-            @Valid @RequestBody RefundPaymentRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody RefundPaymentRequestDto request) {
 
-        PaymentResponseDto refund = paymentService.refundPayment(id, request, currentUserId);
+        PaymentResponseDto refund = paymentService.refundPayment(id, request);
 
         String amount = money(refund.amount(), refund.currency());
         String message;

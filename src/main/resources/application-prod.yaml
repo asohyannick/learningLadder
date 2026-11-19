@@ -40,6 +40,8 @@ spring:
       password: ${REDIS_PASSWORD}
       timeout: 2s
       connect-timeout: 2s
+      repositories:
+        enabled: false
   cache:
         type: redis
 

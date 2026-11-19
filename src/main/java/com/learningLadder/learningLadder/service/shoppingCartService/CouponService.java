@@ -16,10 +16,10 @@ import com.learningLadder.learningLadder.repository.couponRepository.CouponRepos
 import com.learningLadder.learningLadder.repository.couponRepository.CouponSpecification;
 import com.learningLadder.learningLadder.repository.courseRepository.CourseRepository;
 import com.learningLadder.learningLadder.repository.userRepository.UserRepository;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,9 +53,11 @@ public class CouponService {
     private final UserRepository userRepository;
     private final CourseCommerceAdapter courseAdapter;
     private final ShoppingCartService shoppingCartService;
+    private final CurrentUserService currentUserService;
 
     /** Generates a unique code and stores the coupon. The response contains the code to give to students. */
-    public CouponResponseDto issueCoupon(CreateCouponRequestDto dto, UUID issuerId, Collection<String> authorities) {
+    public CouponResponseDto issueCoupon(CreateCouponRequestDto dto, Collection<String> authorities) {
+        UUID issuerId = currentUserService.currentUserId();
         boolean admin = hasAny(authorities, ADMIN_ROLES);
         boolean instructor = hasAny(authorities, INSTRUCTOR_ROLES);
         if (!admin && !instructor) {
@@ -88,7 +90,7 @@ public class CouponService {
         Coupon saved;
         try {
             saved = couponRepository.saveAndFlush(coupon);
-        } catch (BadRequestException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("Could not generate a unique coupon code. Please try again.");
         }
 
@@ -97,8 +99,8 @@ public class CouponService {
         return couponMapper.toResponse(saved);
     }
 
-    public CouponResponseDto revokeCoupon(UUID couponId, RevokeCouponRequestDto dto, UUID userId,
-                                          Collection<String> authorities) {
+    public CouponResponseDto revokeCoupon(UUID couponId, RevokeCouponRequestDto dto, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         Coupon coupon = findCoupon(couponId);
         ensureCanManage(coupon, userId, authorities);
 
@@ -114,7 +116,7 @@ public class CouponService {
         Coupon saved;
         try {
             saved = couponRepository.saveAndFlush(coupon);
-        } catch (ObjectOptimisticLockingFailureException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("This coupon was changed at the same time. Please reload and try again.");
         }
 
@@ -124,15 +126,16 @@ public class CouponService {
     }
 
     @Transactional(readOnly = true)
-    public CouponResponseDto fetchCoupon(UUID couponId, UUID userId, Collection<String> authorities) {
+    public CouponResponseDto fetchCoupon(UUID couponId, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         Coupon coupon = findCoupon(couponId);
         ensureCanManage(coupon, userId, authorities);
         return couponMapper.toResponse(coupon);
     }
 
     @Transactional(readOnly = true)
-    public CouponPageResponseDto fetchCoupons(PagedQueryCouponRequestDto query, UUID userId,
-                                              Collection<String> authorities) {
+    public CouponPageResponseDto fetchCoupons(PagedQueryCouponRequestDto query, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         boolean admin = hasAny(authorities, ADMIN_ROLES);
         if (!admin && !hasAny(authorities, INSTRUCTOR_ROLES)) {
             throw ShoppingCartService.forbidden("Only administrators and instructors can list coupons");
@@ -141,8 +144,8 @@ public class CouponService {
     }
 
     @Transactional(readOnly = true)
-    public CouponPageResponseDto fetchMyCoupons(PagedQueryCouponRequestDto query, UUID studentId) {
-        return search(query.forStudent(studentId));
+    public CouponPageResponseDto fetchMyCoupons(PagedQueryCouponRequestDto query) {
+        return search(query.forStudent(currentUserService.currentUserId()));
     }
 
     private String generateUniqueCode() {

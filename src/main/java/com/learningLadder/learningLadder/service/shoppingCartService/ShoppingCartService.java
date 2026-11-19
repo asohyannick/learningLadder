@@ -23,6 +23,7 @@ import com.learningLadder.learningLadder.repository.shoppingCartRepository.Shopp
 import com.learningLadder.learningLadder.repository.shoppingCartRepository.ShoppingCartSpecification;
 import com.learningLadder.learningLadder.repository.userRepository.UserRepository;
 import com.learningLadder.learningLadder.service.shoppingCartService.CourseCommerceAdapter.CourseSnapshot;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -58,7 +59,7 @@ public class ShoppingCartService {
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.METHOD)
     @Caching(evict = {
-            @CacheEvict(cacheNames = CacheNames.SHOPPING_CART_COUNT, key = "#userId"),
+            @CacheEvict(cacheNames = CacheNames.SHOPPING_CART_COUNT, key = "@currentUserService.currentUserId()"),
             @CacheEvict(cacheNames = {
                     CacheNames.SHOPPING_CART_ITEM, CacheNames.SHOPPING_CART_HISTORY,
                     CacheNames.SHOPPING_CART_SEARCH, CacheNames.SHOPPING_CART_BY_ID
@@ -78,9 +79,11 @@ public class ShoppingCartService {
     private final CouponRules couponRules;
     private final CourseCommerceAdapter courseAdapter;
     private final CacheManager cacheManager;
+    private final CurrentUserService currentUserService;
 
     @EvictUserCartCaches
-    public ShoppingCartResponseDto addProductToCart(AddToCartRequestDto dto, UUID userId) {
+    public ShoppingCartResponseDto addProductToCart(AddToCartRequestDto dto) {
+        UUID userId = currentUserService.currentUserId();
         Course course = courseRepository.findById(dto.courseId())
                 .orElseThrow(() -> new NotFoundRequestException("Course not found with id " + dto.courseId()));
         CourseSnapshot snapshot = courseAdapter.snapshotOf(course);
@@ -124,7 +127,8 @@ public class ShoppingCartService {
         return save(cart);
     }
 
-    public ShoppingCartResponseDto fetchAllProductsFromCart(UUID userId) {
+    public ShoppingCartResponseDto fetchAllProductsFromCart() {
+        UUID userId = currentUserService.currentUserId();
         Optional<ShoppingCart> open = shoppingCartRepository.findFirstByUser_IdAndStatusIn(userId, OPEN_STATUSES);
         if (open.isEmpty()) {
             return emptyCart(userId);
@@ -149,14 +153,16 @@ public class ShoppingCartService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = CacheNames.SHOPPING_CART_ITEM, key = "#userId + ':' + #itemId")
-    public ShoppingCartItemResponseDto fetchProductFromCart(UUID itemId, UUID userId) {
+    @Cacheable(cacheNames = CacheNames.SHOPPING_CART_ITEM, key = "@currentUserService.currentUserId() + ':' + #itemId")
+    public ShoppingCartItemResponseDto fetchProductFromCart(UUID itemId) {
+        UUID userId = currentUserService.currentUserId();
         ShoppingCart cart = requireOpenCart(userId);
         return shoppingCartMapper.toItemResponse(findItem(cart, itemId));
     }
 
     @EvictUserCartCaches
-    public ShoppingCartResponseDto updateProductFromCart(UUID itemId, UpdateCartItemRequestDto dto, UUID userId) {
+    public ShoppingCartResponseDto updateProductFromCart(UUID itemId, UpdateCartItemRequestDto dto) {
+        UUID userId = currentUserService.currentUserId();
         ShoppingCart cart = requireOpenCart(userId);
         ShoppingCartItem item = findItem(cart, itemId);
 
@@ -168,7 +174,8 @@ public class ShoppingCartService {
     }
 
     @EvictUserCartCaches
-    public ShoppingCartResponseDto deleteProductFromCart(UUID itemId, UUID userId) {
+    public ShoppingCartResponseDto deleteProductFromCart(UUID itemId) {
+        UUID userId = currentUserService.currentUserId();
         ShoppingCart cart = requireOpenCart(userId);
         ShoppingCartItem item = findItem(cart, itemId);
 
@@ -184,7 +191,8 @@ public class ShoppingCartService {
     }
 
     @EvictUserCartCaches
-    public ShoppingCartResponseDto clearCart(UUID userId) {
+    public ShoppingCartResponseDto clearCart() {
+        UUID userId = currentUserService.currentUserId();
         ShoppingCart cart = requireOpenCart(userId);
         cart.getItems().clear();
         clearCoupon(cart);
@@ -194,15 +202,16 @@ public class ShoppingCartService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = CacheNames.SHOPPING_CART_COUNT, key = "#userId")
-    public int countTotalNumberOfItemsInCart(UUID userId) {
-        return shoppingCartRepository.findFirstByUser_IdAndStatusIn(userId, OPEN_STATUSES)
+    @Cacheable(cacheNames = CacheNames.SHOPPING_CART_COUNT, key = "@currentUserService.currentUserId()")
+    public int countTotalNumberOfItemsInCart() {
+        return shoppingCartRepository.findFirstByUser_IdAndStatusIn(currentUserService.currentUserId(), OPEN_STATUSES)
                 .map(ShoppingCart::getItemCount)
                 .orElse(0);
     }
 
     @EvictUserCartCaches
-    public ShoppingCartResponseDto addCouponCodeToCart(UpdateShoppingCartRequestDto dto, UUID userId) {
+    public ShoppingCartResponseDto addCouponCodeToCart(UpdateShoppingCartRequestDto dto) {
+        UUID userId = currentUserService.currentUserId();
         if (dto.couponCode() == null) {
             throw new BadRequestException("Please enter a coupon code");
         }
@@ -228,7 +237,8 @@ public class ShoppingCartService {
     }
 
     @EvictUserCartCaches
-    public ShoppingCartResponseDto removeCouponCodeFromCart(UUID userId) {
+    public ShoppingCartResponseDto removeCouponCodeFromCart() {
+        UUID userId = currentUserService.currentUserId();
         ShoppingCart cart = requireOpenCart(userId);
         if (cart.getCouponCode() == null) {
             throw new BadRequestException("There is no coupon on your cart");
@@ -240,9 +250,9 @@ public class ShoppingCartService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = CacheNames.SHOPPING_CART_HISTORY, key = "#userId + ':' + #query")
-    public ShoppingCartPageResponseDto fetchMyCarts(PagedQueryShoppingCartRequestDto query, UUID userId) {
-        return searchInternal(query.forUser(userId));
+    @Cacheable(cacheNames = CacheNames.SHOPPING_CART_HISTORY, key = "@currentUserService.currentUserId() + ':' + #query")
+    public ShoppingCartPageResponseDto fetchMyCarts(PagedQueryShoppingCartRequestDto query) {
+        return searchInternal(query.forUser(currentUserService.currentUserId()));
     }
 
     @Transactional(readOnly = true)

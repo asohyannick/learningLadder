@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
-
 public record AddToCartRequestDto(
 
         @NotNull(message = "Course id is required")

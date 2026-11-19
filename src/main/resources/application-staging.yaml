@@ -28,6 +28,8 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+      repositories:
+        enabled: false
 
 server:
   port: ${PORT}

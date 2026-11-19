@@ -27,7 +27,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -63,11 +62,9 @@ import java.util.UUID;
 public class CouponController {
 
     /** Keep in sync with COUPON_ISSUER_ROLES in SecurityConfig. */
-    private static final String ISSUERS =
-            "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN', 'LECTURER', 'PROFESSOR', 'ASSISTANT_LECTURER')";
+    private static final String ISSUERS =  "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN', 'LECTURER', 'PROFESSOR', 'ASSISTANT_LECTURER')";
 
-    private static final DateTimeFormatter DATE_TIME =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC);
 
     private final CouponService couponService;
 
@@ -92,10 +89,9 @@ public class CouponController {
     })
     public ResponseEntity<APISuccessResponse<CouponResponseDto>> issueCoupon(
             @Valid @RequestBody CreateCouponRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        CouponResponseDto coupon = couponService.issueCoupon(request, currentUserId, authorities(authentication));
+        CouponResponseDto coupon = couponService.issueCoupon(request, authorities(authentication));
 
         String value = coupon.discountType() == DiscountType.PERCENTAGE
                 ? coupon.discountValue().stripTrailingZeros().toPlainString() + "% off"
@@ -131,10 +127,9 @@ public class CouponController {
     public ResponseEntity<APISuccessResponse<CouponResponseDto>> revokeCoupon(
             @Parameter(description = "Coupon id") @PathVariable UUID id,
             @Valid @RequestBody RevokeCouponRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        CouponResponseDto coupon = couponService.revokeCoupon(id, request, currentUserId, authorities(authentication));
+        CouponResponseDto coupon = couponService.revokeCoupon(id, request, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Coupon " + coupon.code() + " revoked. It can no longer be used and was removed from open carts.",
@@ -147,10 +142,9 @@ public class CouponController {
             description = "Coupons assigned to you. Use usableOnly=true to list only the codes you can apply now.")
     @ApiResponse(responseCode = "200", description = "Page of coupons")
     public ResponseEntity<APISuccessResponse<CouponPageResponseDto>> fetchMyCoupons(
-            @Valid @ParameterObject @ModelAttribute PagedQueryCouponRequestDto query,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @ParameterObject @ModelAttribute PagedQueryCouponRequestDto query) {
 
-        CouponPageResponseDto result = couponService.fetchMyCoupons(query, currentUserId);
+        CouponPageResponseDto result = couponService.fetchMyCoupons(query);
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 result.totalElements() == 0 ? "You have no coupons" : "You have " + result.totalElements() + " coupon(s)",
@@ -170,10 +164,9 @@ public class CouponController {
     })
     public ResponseEntity<APISuccessResponse<CouponPageResponseDto>> fetchCoupons(
             @Valid @ParameterObject @ModelAttribute PagedQueryCouponRequestDto query,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        CouponPageResponseDto result = couponService.fetchCoupons(query, currentUserId, authorities(authentication));
+        CouponPageResponseDto result = couponService.fetchCoupons(query, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 result.totalElements() == 0 ? "No coupons found" : result.totalElements() + " coupon(s) found",
@@ -194,10 +187,9 @@ public class CouponController {
     })
     public ResponseEntity<APISuccessResponse<CouponResponseDto>> fetchCoupon(
             @Parameter(description = "Coupon id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        CouponResponseDto coupon = couponService.fetchCoupon(id, currentUserId, authorities(authentication));
+        CouponResponseDto coupon = couponService.fetchCoupon(id, authorities(authentication));
 
         String reason;
         if (coupon.usable()) {
