@@ -40,6 +40,7 @@ public interface LibraryMapper {
     void updateEntity(UpdateLibraryBookRequestDto dto, @MappingTarget Library entity);
 
     @Mapping(target = "courseId", source = "course.id")
+    @Mapping(target = "withCoverImage", ignore = true)
     LibraryBookResponseDto toBookResponse(Library entity);
 
     List<LibraryBookResponseDto> toBookResponseList(List<Library> entities);

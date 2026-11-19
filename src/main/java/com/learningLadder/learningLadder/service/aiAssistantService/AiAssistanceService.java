@@ -40,19 +40,18 @@ import com.learningLadder.learningLadder.service.aiAssistantService.LearningLadd
 import com.learningLadder.learningLadder.service.aiAssistantService.groq.GroqChatClient;
 import com.learningLadder.learningLadder.service.aiAssistantService.groq.GroqChatRequest;
 import com.learningLadder.learningLadder.service.aiAssistantService.groq.GroqCompletion;
+import com.learningLadder.learningLadder.service.userDetails.CurrentUserService;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -139,6 +138,7 @@ public class AiAssistanceService {
     private final MinioFileStorageService minioFileStorageService;
     private final FireAndForgetEmailAsync fireAndForgetEmailAsync;
     private final PlatformTransactionManager transactionManager;
+    private final CurrentUserService currentUserService;
 
     /** Threads that stream replies to browsers (initialized here, so not part of the constructor). */
     private final ExecutorService streamExecutor = Executors.newFixedThreadPool(STREAM_THREADS, namedThreads());
@@ -162,12 +162,9 @@ public class AiAssistanceService {
         }
     }
 
-    // #####################################################################
-    //                     ASSISTANTS (admin configuration)
-    // #####################################################################
-
     @EvictAssistantCaches
-    public AIAssistResponseDto createAssistant(CreateAIAssistRequestDto dto, MultipartFile logo, UUID adminId) {
+    public AIAssistResponseDto createAssistant(CreateAIAssistRequestDto dto, MultipartFile logo) {
+        UUID adminId = currentUserService.currentUserId();
         if (aiAssistRepository.existsByNameIgnoreCase(dto.name())) {
             throw new ConflictRequestException("An assistant named \"" + dto.name() + "\" already exists");
         }
@@ -190,7 +187,7 @@ public class AiAssistanceService {
         AIAssist saved;
         try {
             saved = aiAssistRepository.saveAndFlush(assistant);
-        } catch (DataIntegrityViolationException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("An assistant with this name or slug already exists");
         }
 
@@ -228,9 +225,9 @@ public class AiAssistanceService {
         AIAssist saved;
         try {
             saved = aiAssistRepository.saveAndFlush(assistant);
-        } catch (DataIntegrityViolationException ex) {
-            throw new ConflictRequestException("An assistant with this name or slug already exists");
         } catch (ConflictRequestException ex) {
+            throw new ConflictRequestException("An assistant with this name or slug already exists");
+        } catch (BadRequestException ex) {
             throw new ConflictRequestException("This assistant was changed by someone else. Please reload and try again.");
         }
 
@@ -329,7 +326,7 @@ public class AiAssistanceService {
         ChatAudience chatAudience;
         try {
             chatAudience = audience == null ? ChatAudience.STUDENT : ChatAudience.valueOf(audience.trim().toUpperCase());
-        } catch (BadRequestException ex) {
+        } catch (IllegalArgumentException ex) {
             throw new BadRequestException("audience must be one of: STUDENT, TUTOR, PARENT, STAFF, GUEST");
         }
         return promptBuilder.buildSystemPrompt(findAssistant(assistantId), chatAudience, null);
@@ -350,8 +347,8 @@ public class AiAssistanceService {
      * and the reply is included; otherwise userMessage / assistantMessage are null.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ChatReplyResponseDto startConversation(StartConversationRequestDto dto, UUID userId,
-                                                  Collection<String> authorities) {
+    public ChatReplyResponseDto startConversation(StartConversationRequestDto dto, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         AIConversationResponseDto created = Objects.requireNonNull(tx().execute(status -> {
             AIAssist assistant = findActiveAssistant(dto.assistantId());
 
@@ -369,15 +366,16 @@ public class AiAssistanceService {
 
         if (dto.firstMessage() == null) {
             return new ChatReplyResponseDto(created.id(), created.title(), null, null,
-                    remainingMessagesToday(created.assistantId(), userId));
+                    remainingMessagesFor(created.assistantId(), userId));
         }
-        return sendMessage(created.id(), new SendMessageRequestDto(dto.firstMessage()), userId, authorities);
+        return sendMessageAs(created.id(), new SendMessageRequestDto(dto.firstMessage()), userId, authorities);
     }
 
     /** Chat list. Regular users only ever see their own conversations; staff may filter by any user. */
     @Transactional(readOnly = true)
-    public AIConversationPageResponseDto fetchConversations(PagedQueryAIConversationRequestDto query, UUID userId,
+    public AIConversationPageResponseDto fetchConversations(PagedQueryAIConversationRequestDto query,
                                                             Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         PagedQueryAIConversationRequestDto effective = isStaff(authorities) ? query : query.withUserId(userId);
         Page<AIConversation> result = aiConversationRepository.findAll(
                 AIConversationSpecification.fromQuery(effective), effective.toPageable());
@@ -387,7 +385,8 @@ public class AiAssistanceService {
     }
 
     @Transactional(readOnly = true)
-    public AIConversationResponseDto fetchConversation(UUID conversationId, UUID userId, Collection<String> authorities) {
+    public AIConversationResponseDto fetchConversation(UUID conversationId, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         AIConversation conversation = findConversationWithAssistant(conversationId);
         if (!isStaff(authorities)) {
             ensureConversationOwner(conversation, userId);
@@ -395,19 +394,21 @@ public class AiAssistanceService {
         return assistMapper.toConversationResponse(conversation);
     }
 
-    public AIConversationResponseDto updateConversation(UUID conversationId, UpdateConversationRequestDto dto, UUID userId) {
+    public AIConversationResponseDto updateConversation(UUID conversationId, UpdateConversationRequestDto dto) {
+        UUID userId = currentUserService.currentUserId();
         AIConversation conversation = findConversationWithAssistant(conversationId);
         ensureConversationOwner(conversation, userId);
 
         assistMapper.updateEntity(dto, conversation);
         try {
             return assistMapper.toConversationResponse(aiConversationRepository.saveAndFlush(conversation));
-        } catch (ObjectOptimisticLockingFailureException ex) {
+        } catch (ConflictRequestException ex) {
             throw new ConflictRequestException("This conversation is being updated by a new message. Please try again.");
         }
     }
 
-    public void deleteConversation(UUID conversationId, UUID userId, Collection<String> authorities) {
+    public void deleteConversation(UUID conversationId, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         AIConversation conversation = findConversationWithAssistant(conversationId);
         if (!isStaff(authorities)) {
             ensureConversationOwner(conversation, userId);
@@ -423,8 +424,14 @@ public class AiAssistanceService {
 
     /** Sends a message and waits for the full reply. A provider failure returns a FAILED reply, not an HTTP error. */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ChatReplyResponseDto sendMessage(UUID conversationId, SendMessageRequestDto dto, UUID userId,
+    public ChatReplyResponseDto sendMessage(UUID conversationId, SendMessageRequestDto dto,
                                             Collection<String> authorities) {
+        return sendMessageAs(conversationId, dto, currentUserService.currentUserId(), authorities);
+    }
+
+    /** Shared by sendMessage and startConversation (the user is resolved once by the caller). */
+    private ChatReplyResponseDto sendMessageAs(UUID conversationId, SendMessageRequestDto dto, UUID userId,
+                                               Collection<String> authorities) {
         ChatAudience audience = ChatAudience.fromAuthorities(authorities);
         PreparedTurn turn = prepareTurn(conversationId, dto.content(), userId, audience, false);
 
@@ -456,8 +463,8 @@ public class AiAssistanceService {
      * so the client receives a normal APIErrorResponse.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public SseEmitter streamMessage(UUID conversationId, SendMessageRequestDto dto, UUID userId,
-                                    Collection<String> authorities) {
+    public SseEmitter streamMessage(UUID conversationId, SendMessageRequestDto dto, Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         ChatAudience audience = ChatAudience.fromAuthorities(authorities);
         PreparedTurn turn = prepareTurn(conversationId, dto.content(), userId, audience, true);
 
@@ -491,7 +498,8 @@ public class AiAssistanceService {
     /** Message history of a conversation (SYSTEM messages are never returned). */
     @Transactional(readOnly = true)
     public AIMessagePageResponseDto fetchMessages(UUID conversationId, PagedQueryAIMessageRequestDto query,
-                                                  UUID userId, Collection<String> authorities) {
+                                                  Collection<String> authorities) {
+        UUID userId = currentUserService.currentUserId();
         AIConversation conversation = findConversationWithAssistant(conversationId);
         if (!isStaff(authorities)) {
             ensureConversationOwner(conversation, userId);
@@ -504,7 +512,8 @@ public class AiAssistanceService {
     }
 
     /** Thumbs up / down on an assistant reply. Sending again replaces the previous feedback. */
-    public AIMessageResponseDto submitFeedback(UUID messageId, MessageFeedbackRequestDto dto, UUID userId) {
+    public AIMessageResponseDto submitFeedback(UUID messageId, MessageFeedbackRequestDto dto) {
+        UUID userId = currentUserService.currentUserId();
         AIMessage message = aiMessageRepository.findWithConversationById(messageId)
                 .orElseThrow(() -> new NotFoundRequestException("Message not found with id " + messageId));
         ensureConversationOwner(message.getConversation(), userId);
@@ -523,7 +532,11 @@ public class AiAssistanceService {
 
     /** How many messages the user can still send to this assistant today (resets at midnight UTC). */
     @Transactional(readOnly = true)
-    public int remainingMessagesToday(UUID assistantId, UUID userId) {
+    public int remainingMessagesToday(UUID assistantId) {
+        return remainingMessagesFor(assistantId, currentUserService.currentUserId());
+    }
+
+    private int remainingMessagesFor(UUID assistantId, UUID userId) {
         AIAssist assistant = findAssistant(assistantId);
         long used = countMessagesToday(userId, assistantId);
         return (int) Math.max(assistant.getDailyMessageLimitPerUser() - used, 0);
@@ -596,7 +609,7 @@ public class AiAssistanceService {
                 aiMessageRepository.save(userMessage);
                 aiMessageRepository.save(reply);
                 aiConversationRepository.saveAndFlush(conversation);
-            } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException ex) {
+            } catch (BadRequestException | ConflictRequestException ex) {
                 throw new ConflictRequestException("Another message is being processed in this conversation. Please try again.");
             }
 
@@ -837,8 +850,6 @@ public class AiAssistanceService {
         return new TransactionTemplate(transactionManager);
     }
 
-    // ---------------------------------------------------------------- lookups
-
     private AIAssist findAssistant(UUID id) {
         return aiAssistRepository.findById(id)
                 .orElseThrow(() -> new NotFoundRequestException("Assistant not found with id " + id));
@@ -882,7 +893,6 @@ public class AiAssistanceService {
             throw new BadRequestException("Logo must be a JPEG, PNG, WEBP or SVG image");
         }
         try {
-            // Bytes are read now: the MultipartFile's temp file is deleted when the request ends
             return new LogoUpload("ai-assist/logos/" + UUID.randomUUID() + "." + extension, file.getBytes(), contentType);
         } catch (IOException ex) {
             throw new BadRequestException("Could not read the logo file");

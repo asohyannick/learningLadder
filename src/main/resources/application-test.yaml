@@ -6,16 +6,13 @@ spring:
     name: learningLadder
 
   datasource:
-    url: jdbc:postgresql://${PG_DATABASE_HOST}:${PG_DATABASE_PORT}/${PG_DATABASE_NAME}
-    username: ${PG_DATABASE_USERNAME}
-    password: ${PG_DATABASE_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/learningLadder
+    username: ${PG_DATABASE_USERNAME:postgres}
+    password: ${PG_DATABASE_PASSWORD:Engineer200!!!}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 3
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      maximum-pool-size: 5
+      minimum-idle: 1
 
   jpa:
     hibernate:
@@ -25,151 +22,160 @@ spring:
 
   flyway:
     enabled: true
+    clean-disabled: true
     baseline-on-migrate: true
+
+  cache:
+    type: none
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      repositories:
+        enabled: false
 
 server:
-  port: ${PORT}
+  port: ${PORT:8050}
   forward-headers-strategy: framework
 
 app:
   api:
-    version: ${API_VERSION}
+    version: ${API_VERSION:v1}
 
   security:
     jwt:
-      access-token: ${JWT_ACCESS_TOKEN}
-      refresh-token: ${JWT_REFRESH_TOKEN}
-      access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS}
-      refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS}
+      access-token: ${JWT_ACCESS_TOKEN:Y2ktdGVzdC1hY2Nlc3MtdG9rZW4tc2VjcmV0LW5vdC1mb3ItcHJvZHVjdGlvbi11c2UtMDEyMzQ1Njc4OUFC}
+      refresh-token: ${JWT_REFRESH_TOKEN:Y2ktdGVzdC1yZWZyZXNoLXRva2VuLXNlY3JldC1ub3QtZm9yLXByb2R1Y3Rpb24tdXNlLTAxMjM0NTY3ODlBQg==}
+      access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:900000}
+      refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS:604800000}
+    otp-hash-secret: ${OTP_HASH_SECRET:test-only-otp-hash-secret-0123456789abcdef0123456789abcdef}
 
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS}
-    allowed-methods: ${ALLOWED_METHODS}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-methods: ${ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
 
   integrations:
     stripe:
-      api-key: ${STRIPE_API_KEY}
+      api-key: ${STRIPE_API_KEY:sk_test_ci_dummy}
 
     groq:
-      api-key: ${GROQ_API_KEY}
+      api-key: ${GROQ_API_KEY:gsk_ci_dummy}
 
     resend:
-      api-key: ${RESEND_API_KEY}
-      sender-email: ${RESEND_SENDER_EMAIL}
-      sender-name: ${RESEND_SENDER_NAME}
+      api-key: ${RESEND_API_KEY:re_ci_dummy}
+      sender-email: ${RESEND_SENDER_EMAIL:no-reply@test.learningladder.local}
+      sender-name: ${RESEND_SENDER_NAME:Learning Ladder Test}
 
     minio:
-      endpoint: ${MINIO_ENDPOINT}
-      port: ${MINIO_PORT}
-      use-ssl: ${MINIO_USE_SSL}
-      region: ${MINIO_REGION}
-      username: ${MINIO_USERNAME}
-      password: ${MINIO_PASSWORD}
-      bucket-name: ${MINIO_BUCKET_NAME}
-      console-port: ${MINIO_CONSOLE_PORT}
-      auto-create-bucket: ${MINIO_AUTO_CREATE_BUCKET}
+      endpoint: ${MINIO_ENDPOINT:localhost}
+      port: ${MINIO_PORT:9000}
+      use-ssl: ${MINIO_USE_SSL:false}
+      region: ${MINIO_REGION:us-east-1}
+      username: ${MINIO_USERNAME:test-access-key}
+      password: ${MINIO_PASSWORD:test-secret-key}
+      bucket-name: ${MINIO_BUCKET_NAME:test-bucket}
+      console-port: ${MINIO_CONSOLE_PORT:9001}
+      auto-create-bucket: ${MINIO_AUTO_CREATE_BUCKET:false}
 
   bootstrap:
     users:
       super-admin:
-        email: ${SUPER_ADMIN_EMAIL_ADDRESS}
-        password: ${SUPER_ADMIN_PASSWORD}
+        email: ${SUPER_ADMIN_EMAIL_ADDRESS:super-admin@test.learningladder.local}
+        password: ${SUPER_ADMIN_PASSWORD:Test@Passw0rd!2026}
       admin:
-        email: ${ADMIN_EMAIL_ADDRESS}
-        password: ${ADMIN_PASSWORD}
+        email: ${ADMIN_EMAIL_ADDRESS:admin@test.learningladder.local}
+        password: ${ADMIN_PASSWORD:Test@Passw0rd!2026}
       it-admin:
-        email: ${IT_ADMIN_EMAIL_ADDRESS}
-        password: ${IT_ADMIN_PASSWORD}
-
+        email: ${IT_ADMIN_EMAIL_ADDRESS:it-admin@test.learningladder.local}
+        password: ${IT_ADMIN_PASSWORD:Test@Passw0rd!2026}
       vice-chancellor:
-        email: ${VICE_CHANCELLOR_EMAIL_ADDRESS}
-        password: ${VICE_CHANCELLOR_PASSWORD}
+        email: ${VICE_CHANCELLOR_EMAIL_ADDRESS:vice-chancellor@test.learningladder.local}
+        password: ${VICE_CHANCELLOR_PASSWORD:Test@Passw0rd!2026}
       deputy-vice-chancellor:
-        email: ${DEPUTY_VICE_CHANCELLOR_EMAIL_ADDRESS}
-        password: ${DEPUTY_VICE_CHANCELLOR_PASSWORD}
+        email: ${DEPUTY_VICE_CHANCELLOR_EMAIL_ADDRESS:deputy-vice-chancellor@test.learningladder.local}
+        password: ${DEPUTY_VICE_CHANCELLOR_PASSWORD:Test@Passw0rd!2026}
       registrar:
-        email: ${REGISTRAR_EMAIL_ADDRESS}
-        password: ${REGISTRAR_PASSWORD}
+        email: ${REGISTRAR_EMAIL_ADDRESS:registrar@test.learningladder.local}
+        password: ${REGISTRAR_PASSWORD:Test@Passw0rd!2026}
       deputy-registrar:
-        email: ${DEPUTY_REGISTRAR_EMAIL_ADDRESS}
-        password: ${DEPUTY_REGISTRAR_PASSWORD}
+        email: ${DEPUTY_REGISTRAR_EMAIL_ADDRESS:deputy-registrar@test.learningladder.local}
+        password: ${DEPUTY_REGISTRAR_PASSWORD:Test@Passw0rd!2026}
       academic-director:
-        email: ${ACADEMIC_DIRECTOR_EMAIL_ADDRESS}
-        password: ${ACADEMIC_DIRECTOR_PASSWORD}
-
+        email: ${ACADEMIC_DIRECTOR_EMAIL_ADDRESS:academic-director@test.learningladder.local}
+        password: ${ACADEMIC_DIRECTOR_PASSWORD:Test@Passw0rd!2026}
       dean:
-        email: ${DEAN_EMAIL_ADDRESS}
-        password: ${DEAN_PASSWORD}
+        email: ${DEAN_EMAIL_ADDRESS:dean@test.learningladder.local}
+        password: ${DEAN_PASSWORD:Test@Passw0rd!2026}
       deputy-dean:
-        email: ${DEPUTY_DEAN_EMAIL_ADDRESS}
-        password: ${DEPUTY_DEAN_PASSWORD}
+        email: ${DEPUTY_DEAN_EMAIL_ADDRESS:deputy-dean@test.learningladder.local}
+        password: ${DEPUTY_DEAN_PASSWORD:Test@Passw0rd!2026}
       head-of-department:
-        email: ${HEAD_OF_DEPARTMENT_EMAIL_ADDRESS}
-        password: ${HEAD_OF_DEPARTMENT_PASSWORD}
+        email: ${HEAD_OF_DEPARTMENT_EMAIL_ADDRESS:head-of-department@test.learningladder.local}
+        password: ${HEAD_OF_DEPARTMENT_PASSWORD:Test@Passw0rd!2026}
       deputy-head-of-department:
-        email: ${DEPUTY_HEAD_OF_DEPARTMENT_EMAIL_ADDRESS}
-        password: ${DEPUTY_HEAD_OF_DEPARTMENT_PASSWORD}
+        email: ${DEPUTY_HEAD_OF_DEPARTMENT_EMAIL_ADDRESS:deputy-head-of-department@test.learningladder.local}
+        password: ${DEPUTY_HEAD_OF_DEPARTMENT_PASSWORD:Test@Passw0rd!2026}
       lecturer:
-        email: ${LECTURER_EMAIL_ADDRESS}
-        password: ${LECTURER_PASSWORD}
+        email: ${LECTURER_EMAIL_ADDRESS:lecturer@test.learningladder.local}
+        password: ${LECTURER_PASSWORD:Test@Passw0rd!2026}
       professor:
-        email: ${PROFESSOR_EMAIL_ADDRESS}
-        password: ${PROFESSOR_PASSWORD}
+        email: ${PROFESSOR_EMAIL_ADDRESS:professor@test.learningladder.local}
+        password: ${PROFESSOR_PASSWORD:Test@Passw0rd!2026}
       assistant-lecturer:
-        email: ${ASSISTANT_LECTURER_EMAIL_ADDRESS}
-        password: ${ASSISTANT_LECTURER_PASSWORD}
-
+        email: ${ASSISTANT_LECTURER_EMAIL_ADDRESS:assistant-lecturer@test.learningladder.local}
+        password: ${ASSISTANT_LECTURER_PASSWORD:Test@Passw0rd!2026}
       admissions-officer:
-        email: ${ADMISSIONS_OFFICER_EMAIL_ADDRESS}
-        password: ${ADMISSIONS_OFFICER_PASSWORD}
+        email: ${ADMISSIONS_OFFICER_EMAIL_ADDRESS:admissions-officer@test.learningladder.local}
+        password: ${ADMISSIONS_OFFICER_PASSWORD:Test@Passw0rd!2026}
       admission-committee:
-        email: ${ADMISSION_COMMITTEE_EMAIL_ADDRESS}
-        password: ${ADMISSION_COMMITTEE_PASSWORD}
+        email: ${ADMISSION_COMMITTEE_EMAIL_ADDRESS:admission-committee@test.learningladder.local}
+        password: ${ADMISSION_COMMITTEE_PASSWORD:Test@Passw0rd!2026}
       student-registrar:
-        email: ${STUDENT_REGISTRAR_EMAIL_ADDRESS}
-        password: ${STUDENT_REGISTRAR_PASSWORD}
-
+        email: ${STUDENT_REGISTRAR_EMAIL_ADDRESS:student-registrar@test.learningladder.local}
+        password: ${STUDENT_REGISTRAR_PASSWORD:Test@Passw0rd!2026}
       bursar:
-        email: ${BURSAR_EMAIL_ADDRESS}
-        password: ${BURSAR_PASSWORD}
+        email: ${BURSAR_EMAIL_ADDRESS:bursar@test.learningladder.local}
+        password: ${BURSAR_PASSWORD:Test@Passw0rd!2026}
       accountant:
-        email: ${ACCOUNTANT_EMAIL_ADDRESS}
-        password: ${ACCOUNTANT_PASSWORD}
+        email: ${ACCOUNTANT_EMAIL_ADDRESS:accountant@test.learningladder.local}
+        password: ${ACCOUNTANT_PASSWORD:Test@Passw0rd!2026}
       finance-officer:
-        email: ${FINANCE_OFFICER_EMAIL_ADDRESS}
-        password: ${FINANCE_OFFICER_PASSWORD}
-
+        email: ${FINANCE_OFFICER_EMAIL_ADDRESS:finance-officer@test.learningladder.local}
+        password: ${FINANCE_OFFICER_PASSWORD:Test@Passw0rd!2026}
       hr-manager:
-        email: ${HR_MANAGER_EMAIL_ADDRESS}
-        password: ${HR_MANAGER_PASSWORD}
+        email: ${HR_MANAGER_EMAIL_ADDRESS:hr-manager@test.learningladder.local}
+        password: ${HR_MANAGER_PASSWORD:Test@Passw0rd!2026}
       hr-officer:
-        email: ${HR_OFFICER_EMAIL_ADDRESS}
-        password: ${HR_OFFICER_PASSWORD}
-
+        email: ${HR_OFFICER_EMAIL_ADDRESS:hr-officer@test.learningladder.local}
+        password: ${HR_OFFICER_PASSWORD:Test@Passw0rd!2026}
       examination-officer:
-        email: ${EXAMINATION_OFFICER_EMAIL_ADDRESS}
-        password: ${EXAMINATION_OFFICER_PASSWORD}
+        email: ${EXAMINATION_OFFICER_EMAIL_ADDRESS:examination-officer@test.learningladder.local}
+        password: ${EXAMINATION_OFFICER_PASSWORD:Test@Passw0rd!2026}
       results-officer:
-        email: ${RESULTS_OFFICER_EMAIL_ADDRESS}
-        password: ${RESULTS_OFFICER_PASSWORD}
-
+        email: ${RESULTS_OFFICER_EMAIL_ADDRESS:results-officer@test.learningladder.local}
+        password: ${RESULTS_OFFICER_PASSWORD:Test@Passw0rd!2026}
       librarian:
-        email: ${LIBRARIAN_EMAIL_ADDRESS}
-        password: ${LIBRARIAN_PASSWORD}
-
+        email: ${LIBRARIAN_EMAIL_ADDRESS:librarian@test.learningladder.local}
+        password: ${LIBRARIAN_PASSWORD:Test@Passw0rd!2026}
       student-affairs-officer:
-        email: ${STUDENT_AFFAIRS_OFFICER_EMAIL_ADDRESS}
-        password: ${STUDENT_AFFAIRS_OFFICER_PASSWORD}
+        email: ${STUDENT_AFFAIRS_OFFICER_EMAIL_ADDRESS:student-affairs-officer@test.learningladder.local}
+        password: ${STUDENT_AFFAIRS_OFFICER_PASSWORD:Test@Passw0rd!2026}
       counselor:
-        email: ${COUNSELOR_EMAIL_ADDRESS}
-        password: ${COUNSELOR_PASSWORD}
-
+        email: ${COUNSELOR_EMAIL_ADDRESS:counselor@test.learningladder.local}
+        password: ${COUNSELOR_PASSWORD:Test@Passw0rd!2026}
       parent:
-        email: ${PARENT_EMAIL_ADDRESS}
-        password: ${PARENT_PASSWORD}
+        email: ${PARENT_EMAIL_ADDRESS:parent@test.learningladder.local}
+        password: ${PARENT_PASSWORD:Test@Passw0rd!2026}
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

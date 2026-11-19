@@ -44,7 +44,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -91,14 +90,9 @@ import java.util.UUID;
 )
 public class AiAssistController {
 
-    /** Keep in sync with AI_ASSIST_ADMIN_ROLES in SecurityConfig. */
-    private static final String ADMIN = "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN')";
+    private static final String ADMIN = "hasAnyRole('SUPER_ADMIN', 'ADMIN', 'IT_ADMIN', 'STUDENT')";
 
     private final AiAssistanceService aiAssistanceService;
-
-    // #####################################################################
-    //                     ASSISTANTS - ADMIN CONFIGURATION
-    // #####################################################################
 
     @PostMapping(value = "/assistants", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
@@ -132,10 +126,9 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<AIAssistResponseDto>> createAssistant(
             @Valid @RequestPart("data") CreateAIAssistRequestDto data,
-            @RequestPart(value = "logo", required = false) MultipartFile logo,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @RequestPart(value = "logo", required = false) MultipartFile logo) {
 
-        AIAssistResponseDto assistant = aiAssistanceService.createAssistant(data, logo, currentUserId);
+        AIAssistResponseDto assistant = aiAssistanceService.createAssistant(data, logo);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(APISuccessResponse.created(
                 "AI assistant \"" + assistant.name() + "\" created successfully and is now available to users",
@@ -421,10 +414,9 @@ public class AiAssistController {
                             schema = @Schema(implementation = APIErrorResponse.class)))
     })
     public ResponseEntity<APISuccessResponse<Integer>> remainingMessagesToday(
-            @Parameter(description = "Assistant id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Parameter(description = "Assistant id") @PathVariable UUID id) {
 
-        int remaining = aiAssistanceService.remainingMessagesToday(id, currentUserId);
+        int remaining = aiAssistanceService.remainingMessagesToday(id);
         String message = remaining == 0
                 ? "You have used all your messages with this assistant for today. The limit resets at midnight (UTC)."
                 : "You can send " + remaining + " more message(s) to this assistant today";
@@ -432,9 +424,6 @@ public class AiAssistController {
         return ResponseEntity.ok(APISuccessResponse.ok(message, remaining, currentPath()));
     }
 
-    // #####################################################################
-    //                             CONVERSATIONS
-    // #####################################################################
 
     @PostMapping(value = "/conversations", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
@@ -457,11 +446,10 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<ChatReplyResponseDto>> startConversation(
             @Valid @RequestBody StartConversationRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
         ChatReplyResponseDto result = aiAssistanceService.startConversation(
-                request, currentUserId, authorities(authentication));
+                request, authorities(authentication));
 
         String message = result.assistantMessage() == null
                 ? "Conversation \"" + result.conversationTitle() + "\" started. Send your first message."
@@ -484,11 +472,10 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<AIConversationPageResponseDto>> fetchConversations(
             @Valid @ParameterObject @ModelAttribute PagedQueryAIConversationRequestDto query,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
         AIConversationPageResponseDto result = aiAssistanceService.fetchConversations(
-                query, currentUserId, authorities(authentication));
+                query, authorities(authentication));
         String message = result.totalElements() == 0
                 ? (Boolean.TRUE.equals(query.archived()) ? "No archived conversations" : "No conversations yet. Start one with an assistant!")
                 : "Conversations fetched successfully";
@@ -510,11 +497,10 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<AIConversationResponseDto>> fetchConversation(
             @Parameter(description = "Conversation id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
         AIConversationResponseDto conversation = aiAssistanceService.fetchConversation(
-                id, currentUserId, authorities(authentication));
+                id, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok("Conversation fetched successfully", conversation, currentPath()));
     }
@@ -538,10 +524,9 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<AIConversationResponseDto>> updateConversation(
             @Parameter(description = "Conversation id") @PathVariable UUID id,
-            @Valid @RequestBody UpdateConversationRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody UpdateConversationRequestDto request) {
 
-        AIConversationResponseDto conversation = aiAssistanceService.updateConversation(id, request, currentUserId);
+        AIConversationResponseDto conversation = aiAssistanceService.updateConversation(id, request);
 
         String message;
         if (Boolean.TRUE.equals(request.archived())) {
@@ -573,18 +558,13 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<Void>> deleteConversation(
             @Parameter(description = "Conversation id") @PathVariable UUID id,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        aiAssistanceService.deleteConversation(id, currentUserId, authorities(authentication));
+        aiAssistanceService.deleteConversation(id, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(
                 "Conversation and all its messages deleted successfully", currentPath()));
     }
-
-    // #####################################################################
-    //                               MESSAGES
-    // #####################################################################
 
     @PostMapping(value = "/conversations/{id}/messages", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
@@ -613,11 +593,10 @@ public class AiAssistController {
     public ResponseEntity<APISuccessResponse<ChatReplyResponseDto>> sendMessage(
             @Parameter(description = "Conversation id") @PathVariable UUID id,
             @Valid @RequestBody SendMessageRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
         ChatReplyResponseDto result = aiAssistanceService.sendMessage(
-                id, request, currentUserId, authorities(authentication));
+                id, request, authorities(authentication));
 
         return ResponseEntity.ok(APISuccessResponse.ok(replyMessage(result), result, currentPath()));
     }
@@ -652,10 +631,9 @@ public class AiAssistController {
     public SseEmitter streamMessage(
             @Parameter(description = "Conversation id") @PathVariable UUID id,
             @Valid @RequestBody SendMessageRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
-        return aiAssistanceService.streamMessage(id, request, currentUserId, authorities(authentication));
+        return aiAssistanceService.streamMessage(id, request, authorities(authentication));
     }
 
     @GetMapping(value = "/conversations/{id}/messages", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -675,11 +653,10 @@ public class AiAssistController {
     public ResponseEntity<APISuccessResponse<AIMessagePageResponseDto>> fetchMessages(
             @Parameter(description = "Conversation id") @PathVariable UUID id,
             @Valid @ParameterObject @ModelAttribute PagedQueryAIMessageRequestDto query,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId,
             @Parameter(hidden = true) Authentication authentication) {
 
         AIMessagePageResponseDto result = aiAssistanceService.fetchMessages(
-                id, query, currentUserId, authorities(authentication));
+                id, query, authorities(authentication));
         String message = result.totalElements() == 0
                 ? "No messages in this conversation yet"
                 : "Messages fetched successfully";
@@ -710,10 +687,9 @@ public class AiAssistController {
     })
     public ResponseEntity<APISuccessResponse<AIMessageResponseDto>> submitFeedback(
             @Parameter(description = "Message id") @PathVariable UUID id,
-            @Valid @RequestBody MessageFeedbackRequestDto request,
-            @Parameter(hidden = true) @AuthenticationPrincipal(expression = "id") UUID currentUserId) {
+            @Valid @RequestBody MessageFeedbackRequestDto request) {
 
-        AIMessageResponseDto message = aiAssistanceService.submitFeedback(id, request, currentUserId);
+        AIMessageResponseDto message = aiAssistanceService.submitFeedback(id, request);
         String text = request.rating() == 1
                 ? "Thanks! Glad this reply was helpful."
                 : "Thanks for your feedback. It helps us improve the assistant.";
@@ -721,9 +697,6 @@ public class AiAssistController {
         return ResponseEntity.ok(APISuccessResponse.ok(text, message, currentPath()));
     }
 
-    // #####################################################################
-    //                               HELPERS
-    // #####################################################################
 
     /** Message for a chat turn, based on what happened to the reply. */
     private static String replyMessage(ChatReplyResponseDto result) {

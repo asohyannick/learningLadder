@@ -94,6 +94,7 @@ public class User {
     @Column(name = "isAccountDeleted")
     private boolean isAccountDeleted = false;
 
+    @Builder.Default
     @Column(name = "otpCodeVerified")
     private boolean optCodeVerified = false;
 

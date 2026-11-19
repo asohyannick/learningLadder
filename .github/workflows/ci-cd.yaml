@@ -20,7 +20,7 @@ on:
 
 concurrency:
   group: ci-cd-${{ github.ref }}
-  cancel-in-progress: true         # a newer push cancels the older run on the same branch
+  cancel-in-progress: true
 
 permissions:
   contents: read
