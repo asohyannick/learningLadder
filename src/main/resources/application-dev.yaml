@@ -11,7 +11,7 @@ spring:
       max-request-size: 500MB
 
   datasource:
-    url: jdbc:postgresql://${PG_DATABASE_HOST}:${PG_DATABASE_PORT}/${PG_DATABASE_NAME}
+    url: jdbc:postgresql://${PG_DATABASE_HOST}:${PG_DATABASE_PORT}/${PG_DATABASE_NAME}?sslmode=require
     username: ${PG_DATABASE_USERNAME}
     password: ${PG_DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
