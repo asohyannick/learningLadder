@@ -31,6 +31,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.CorsFilter;
 import tools.jackson.databind.ObjectMapper;
 
@@ -392,6 +393,13 @@ public class SecurityConfig {
 
     private static final String[] PAYMENT_FINANCE_ROLES = roles(SUPER_ADMIN, ADMIN);
 
+    private static final String[] ACTUATOR_READ_ROLES  = roles(SUPER_ADMIN, ADMIN, IT_ADMIN);
+    private static final String[] ACTUATOR_WRITE_ROLES = roles(SUPER_ADMIN, IT_ADMIN);
+
+    private static RequestMatcher method(HttpMethod method, RequestMatcher matcher) {
+        return request -> method.matches(request.getMethod()) && matcher.matches(request);
+    }
+
     private final JWTFilter jwtFilter;
     private final ObjectMapper objectMapper;
     private final RateLimitingFilter rateLimitingFilter;
@@ -552,6 +560,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, PAYMENT_WEBHOOK_ROUTES).permitAll()
                         .requestMatchers(PAYMENT_FINANCE_ROUTES).hasAnyRole(PAYMENT_FINANCE_ROLES)
                         .requestMatchers(PAYMENT_USER_ROUTES).authenticated()
+
+                        // Actuator
+                        .requestMatchers(EndpointRequest.to("health", "info")).permitAll()
+
+                        .requestMatchers(method(HttpMethod.POST, EndpointRequest.to("loggers"))).hasAnyRole(ACTUATOR_WRITE_ROLES)
+
+                        .requestMatchers(method(HttpMethod.GET, EndpointRequest.to("metrics", "loggers"))).hasAnyRole(ACTUATOR_READ_ROLES)
+
+                        .requestMatchers(EndpointRequest.toAnyEndpoint()).denyAll()
 
                         .anyRequest().authenticated())
 
