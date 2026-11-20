@@ -19,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,7 +64,6 @@ public class UserController {
                                     }
                                     """)))
     })
-    @Async
     public ResponseEntity<APISuccessResponse<UserResponseDto>> register(
             @Valid @RequestBody RegisterRequestDto registerRequestDto,
             HttpServletRequest request) {
@@ -110,7 +108,6 @@ public class UserController {
                                     }
                                     """)))
     })
-    @Async
     public ResponseEntity<APISuccessResponse<UserResponseDto>> verifyOtpCode(
             @Valid @RequestBody VerifyOtpCodeDto verifyOtpCodeDto,
             HttpServletRequest request) {
@@ -340,7 +337,6 @@ public class UserController {
                                             """)
                             }))
     })
-    @Async
     public ResponseEntity<APISuccessResponse<UserResponseDto>> resendOtpCode(
             @Valid @RequestBody ResendOtpCodeDto resendOtpCodeDto,
             HttpServletRequest request) {

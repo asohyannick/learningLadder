@@ -7,6 +7,7 @@ import com.resend.services.emails.model.CreateEmailOptions;
 import com.resend.services.emails.model.CreateEmailResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class EmailService {
         this.from = senderName + " <" + senderEmail + ">";
     }
 
+    @Async
     public void send(List<String> recipients, String subject, String html, String text) {
         CreateEmailOptions.Builder builder = CreateEmailOptions.builder()
                 .from(from)
